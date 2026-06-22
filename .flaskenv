@@ -1,0 +1,2 @@
+FLASK_APP=judge.py
+FLASK_DEBUG=1
