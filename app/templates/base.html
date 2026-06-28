@@ -15,9 +15,15 @@
             {% else %}
             <a href="{{ url_for('user', username=current_user.username) }}">Profile</a>
             <a href="{{ url_for('logout') }}">Logout</a>
+            
+            {% if current_user.rolet and current_user.rolet.rolename == 'admin' %}
+                <a href="{{ url_for('view_users') }}">Users</a>
             {% endif %}
-            {% if current_user.username =='roman' %}
-            <a href="{{ url_for('view_users') }}">Users</a>
+            
+            {% if current_user.rolet and current_user.rolet.rolename == 'admin' %}
+                <a href="{{ url_for('admin_users') }}">Админка</a>
+            {% endif %}
+
             {% endif %}
         </div>
         <hr>

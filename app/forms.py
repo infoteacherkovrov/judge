@@ -1,9 +1,9 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, BooleanField, SubmitField
+from wtforms import StringField, PasswordField, BooleanField, SubmitField,SelectField,IntegerField
 from wtforms.validators import ValidationError, DataRequired, Email, EqualTo
 import sqlalchemy as sa
 from app import db
-from app.models import User
+from app.models import User, Role
 from wtforms import TextAreaField
 from wtforms.validators import Length
 
@@ -14,6 +14,7 @@ class LoginForm(FlaskForm):
     submit = SubmitField('Sign In')
     
 class RegistrationForm(FlaskForm):
+    role_id = SelectField('Role', coerce=int, validators=[DataRequired()])
     username = StringField('Username', validators=[DataRequired()])
     email = StringField('Email', validators=[DataRequired(), Email()])
     password = PasswordField('Password', validators=[DataRequired()])
@@ -48,3 +49,8 @@ class EditProfileForm(FlaskForm):
                 User.username == username.data))
             if user is not None:
                 raise ValidationError('Please use a different username.')
+
+class AdminRoleForm(FlaskForm):
+    user_id = IntegerField('User ID', validators=[DataRequired()])
+    new_role_id = SelectField('New Role', coerce=int, validators=[DataRequired()])
+    submit = SubmitField('Change Role')

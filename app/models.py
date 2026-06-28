@@ -8,7 +8,20 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
 from hashlib import md5
 
+class Role(UserMixin,db.Model):
+    __tablename__ = 'roles'
+    
+    id: so.Mapped[int] = so.mapped_column(primary_key=True)
+    rolename:so.Mapped[str] = so.mapped_column(sa.String(30), index=True,
+                                                unique=True)
+    roles: so.WriteOnlyMapped[list['User']] = so.relationship(back_populates='rolet')
+    
+    def __repr__(self):
+        return '<Role {}>'.format(self.rolename)
+    
 class User(UserMixin, db.Model):
+    __tablename__ ='users'
+    
     id: so.Mapped[int] = so.mapped_column(primary_key=True)
     username: so.Mapped[str] = so.mapped_column(sa.String(64), index=True,
                                                 unique=True)
@@ -16,13 +29,15 @@ class User(UserMixin, db.Model):
                                              unique=True)
     password_hash: so.Mapped[Optional[str]] = so.mapped_column(sa.String(256))
 
-    posts: so.WriteOnlyMapped['Post'] = so.relationship(
-        back_populates='author')
+    posts: so.WriteOnlyMapped['Post'] = so.relationship(back_populates='author')
     
     about_me: so.Mapped[Optional[str]] = so.mapped_column(sa.String(140))
     
     last_seen: so.Mapped[Optional[datetime]] = so.mapped_column(
         default=lambda: datetime.now(timezone.utc))
+    
+    role_id: so.Mapped[int] = so.mapped_column(sa.ForeignKey(Role.id),index=True)
+    rolet: so.Mapped['Role'] = so.relationship(back_populates='roles')
     
     def __repr__(self):
         return '<User {}>'.format(self.username)
@@ -38,6 +53,8 @@ class User(UserMixin, db.Model):
         return f'https://www.gravatar.com/avatar/{digest}?d=identicon&s={size}'
     
 class Post(db.Model):
+    __tablename__ = 'posts'
+    
     id: so.Mapped[int] = so.mapped_column(primary_key=True)
     body: so.Mapped[str] = so.mapped_column(sa.String(140))
     timestamp: so.Mapped[datetime] = so.mapped_column(

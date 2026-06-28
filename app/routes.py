@@ -1,9 +1,10 @@
 from flask import render_template, flash, redirect, url_for
 from app import app,db
-from app.forms import LoginForm, RegistrationForm
+from app.forms import LoginForm, RegistrationForm,AdminRoleForm
 from flask_login import current_user, login_user,logout_user
 import sqlalchemy as sa
-from app.models import User
+import sqlalchemy.orm as so
+from app.models import User, Role
 from flask_login import login_required
 from flask import request
 from urllib.parse import urlsplit
@@ -60,8 +61,10 @@ def register():
     if current_user.is_authenticated:
         return redirect(url_for('index'))
     form = RegistrationForm()
+    roles = Role.query.all()
+    form.role_id.choices = [(role.id, role.rolename) for role in roles]
     if form.validate_on_submit():
-        user = User(username=form.username.data, email=form.email.data)
+        user = User(username=form.username.data, email=form.email.data, role_id=1) #role_id=form.role_id.data
         user.set_password(form.password.data)
         db.session.add(user)
         db.session.commit()
@@ -104,5 +107,91 @@ def edit_profile():
 @app.route('/view_users', methods=['GET'])
 @login_required
 def view_users():
+    if not is_admin():
+        flash('У вас нет прав для доступа к этой странице', 'danger')
+        return redirect(url_for('index'))  # или url_for('login'), куда хочешь редиректить
     users = db.session.scalars(sa.select(User)).all()
     return render_template('view_users.html', users=users)
+
+
+'''
+@app.route('/admin/users', methods=['GET', 'POST'])
+def admin_users():
+    # Получаем всех пользователей и все роли (для выпадающих списков)
+    users = User.query.all()
+    roles = Role.query.all()
+
+    # Создаем одну форму, но мы будем заполнять её choices динамически для каждой строки в шаблоне
+    # Или лучше: создадим форму для каждого пользователя в шаблоне. 
+    # Самый чистый вариант — передать roles в шаблон и строить формы там.
+    
+    # Но чтобы форма валидировалась, нам нужна одна форма на POST-запрос.
+    form = AdminRoleForm()
+    
+    # Заполняем варианты выбора ролей для формы (они будут одинаковыми для всех)
+    form.new_role_id.choices = [(r.id, r.rolename) for r in roles]
+
+    if form.validate_on_submit():
+        user = User.query.get(form.user_id.data)
+        if user:
+            user.role_id = form.new_role_id.data
+            db.session.commit()
+            flash(f'Роль пользователя {user.username} изменена на {Role.query.get(form.new_role_id.data).rolename}', 'success')
+        else:
+            flash('Пользователь не найден', 'danger')
+        return redirect(url_for('admin_users'))
+
+    return render_template('admin_users.html', users=users, roles=roles, form=form)
+'''
+@app.route('/admin/users', methods=['GET', 'POST'])
+@login_required
+def admin_users():
+    if not is_admin():
+        flash('У вас нет прав для доступа к этой странице', 'danger')
+        return redirect(url_for('index'))  # или url_for('login'), куда хочешь редиректить
+    
+    users = User.query.all()
+    roles = Role.query.all()
+    form = AdminRoleForm()
+    
+    # Заполняем choices для валидации (обязательно!)
+    form.new_role_id.choices = [(r.id, r.rolename) for r in roles]
+
+    if form.validate_on_submit():
+        print("--- ОТЛАДКА: Форма прошла валидацию ---")
+        print(f"Получен user_id: {form.user_id.data} (тип: {type(form.user_id.data)})")
+        print(f"Получен new_role_id: {form.new_role_id.data} (тип: {type(form.new_role_id.data)})")
+
+        user = User.query.get(form.user_id.data)
+        
+        if user:
+            old_role_name = user.rolet.rolename if user.rolet else "None"
+            user.role_id = form.new_role_id.data
+            db.session.commit()
+            print(f"✅ УСПЕХ: Роль пользователя {user.username} изменена с '{old_role_name}' на '{Role.query.get(form.new_role_id.data).rolename}'")
+            flash(f'Роль пользователя {user.username} успешно изменена', 'success')
+        else:
+            print("❌ ОШИБКА: Пользователь не найден!")
+            flash('Пользователь не найден', 'danger')
+            
+        return redirect(url_for('admin_users'))
+    else:
+        # Если валидация НЕ прошла, выводим ошибки в консоль
+        if request.method == 'POST':
+            print("--- ОТЛАДКА: Валидация НЕ пройдена ---")
+            print(f"Ошибки формы: {form.errors}")
+            # Это критически важно: если тут есть ошибки, код до commit не доходит!
+
+    return render_template('admin_users.html', users=users, roles=roles, form=form)
+
+def is_admin():
+    # Проверяем, залогинен ли пользователь вообще
+    if not current_user.is_authenticated:
+        return False
+    
+    # Тут мы проверяем имя роли. У тебя в модели Role поле называется 'rolename'
+    # Если у пользователя нет роли (rolet равен None), то он точно не админ
+    if not current_user.rolet:
+        return False
+        
+    return current_user.rolet.rolename == 'admin'
