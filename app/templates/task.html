@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block content %}
+<table>
+        <tr valign="top">
+            
+            <td>
+                <h1>Task: {{ task.id }}</h1>
+                {{task.title}}<br>
+                {{task.content}}
+                
+            </td>
+            
+        </tr>
+        
+</table>
+{% endblock %}

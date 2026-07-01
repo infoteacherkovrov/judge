@@ -1,10 +1,10 @@
 from flask import render_template, flash, redirect, url_for
 from app import app,db
-from app.forms import LoginForm, RegistrationForm,AdminRoleForm
+from app.forms import LoginForm, RegistrationForm, AdminRoleForm, CreateTask
 from flask_login import current_user, login_user,logout_user
 import sqlalchemy as sa
 import sqlalchemy.orm as so
-from app.models import User, Role
+from app.models import User, Role,Task
 from flask_login import login_required
 from flask import request
 from urllib.parse import urlsplit
@@ -143,6 +143,7 @@ def admin_users():
 
     return render_template('admin_users.html', users=users, roles=roles, form=form)
 '''
+
 @app.route('/admin/users', methods=['GET', 'POST'])
 @login_required
 def admin_users():
@@ -183,6 +184,54 @@ def admin_users():
             # Это критически важно: если тут есть ошибки, код до commit не доходит!
 
     return render_template('admin_users.html', users=users, roles=roles, form=form)
+
+
+
+
+@app.route('/create_task', methods=['GET', 'POST'])
+@login_required
+def create_task():
+    if not is_admin():
+        flash('У вас нет прав для доступа к этой странице', 'danger')
+        return redirect(url_for('index'))  # или url_for('login'), куда хочешь редиректить
+    form = CreateTask()
+    if form.validate_on_submit():
+        
+        print("--- ОТЛАДКА: Форма прошла валидацию ---")
+        print(f"Получен title: {form.title.data} (тип: {type(form.title.data)})")
+        print(f"Получен content: {form.content.data} (тип: {type(form.content.data)})")
+        print(f"Получен subject: {form.subject.data} (тип: {type(form.subject.data)})")
+        
+        newtask = Task(title=form.title.data, content=form.content.data, subject=form.subject.data)
+        newtask.created_date = datetime.now(timezone.utc)
+        newtask.user_id=current_user.id
+        
+        db.session.add(newtask)
+        db.session.commit()
+        flash('Your changes have been saved.')
+        return redirect(url_for('create_task'))
+    '''elif request.method == 'GET':
+        form.username.data = current_user.username
+        form.about_me.data = current_user.about_me'''
+    return render_template('create_task.html', title='Create task',
+                           form=form)
+
+@app.route('/view_tasks', methods=['GET'])
+@login_required
+def view_tasks():
+    if not is_admin():
+        flash('У вас нет прав для доступа к этой странице', 'danger')
+        return redirect(url_for('index'))  # или url_for('login'), куда хочешь редиректить
+    tasks = db.session.scalars(sa.select(Task)).all()
+    return render_template('view_tasks.html', tasks=tasks)
+
+@app.route('/task/<id>')
+@login_required
+def task(id):
+    task2 = db.first_or_404(sa.select(Task).where(Task.id == id))
+    print(f"Получен id: {task2} (тип: {type(task2)})")
+    content2='3434324'
+    return render_template('task.html', task=task2 )
 
 def is_admin():
     # Проверяем, залогинен ли пользователь вообще

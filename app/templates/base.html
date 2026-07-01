@@ -1,12 +1,18 @@
-<html>
+<!doctype html>
+<html lang="en">
     <head>
+       
         {% if title %}
-        <title>{{ title }} - microblog</title>
+        <title>{{ title }} - Microblog</title>
         {% else %}
-        <title>microblog</title>
+        <title>Welcome to Microblog</title>
         {% endif %}
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    {{ bootstrap.load_css() }}
     </head>
     <body>
+       <nav class="navbar navbar-light" style="background-color: #e3f2fd; justify-content-end" > 
        <div>
             Microblog:
             <a href="{{ url_for('index') }}">Home</a>
@@ -18,14 +24,18 @@
             
             {% if current_user.rolet and current_user.rolet.rolename == 'admin' %}
                 <a href="{{ url_for('view_users') }}">Users</a>
+                
             {% endif %}
             
             {% if current_user.rolet and current_user.rolet.rolename == 'admin' %}
-                <a href="{{ url_for('admin_users') }}">Админка</a>
+                <a href="{{ url_for('admin_users') }}">AdminPanel</a>
+                <a href="{{ url_for('view_tasks') }}">ViewTasks</a>
+                <a href="{{ url_for('create_task') }}">CreateTask</a>
             {% endif %}
 
             {% endif %}
         </div>
+        </nav>
         <hr>
         {% with messages = get_flashed_messages() %}
         {% if messages %}
@@ -37,5 +47,6 @@
         {% endif %}
         {% endwith %}
         {% block content %}{% endblock %}
+    {{ bootstrap.load_js() }}
     </body>
 </html>

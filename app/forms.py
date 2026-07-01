@@ -54,3 +54,12 @@ class AdminRoleForm(FlaskForm):
     user_id = IntegerField('User ID', validators=[DataRequired()])
     new_role_id = SelectField('New Role', coerce=int, validators=[DataRequired()])
     submit = SubmitField('Change Role')
+    
+class CreateTask(FlaskForm):
+    subject = StringField('Subject', validators=[DataRequired()])
+    title = StringField('Title', validators=[DataRequired()])
+    content = TextAreaField('Content', validators=[Length(min=0, max=1400)])
+    submit = SubmitField('Create task')
+    
+   
+    

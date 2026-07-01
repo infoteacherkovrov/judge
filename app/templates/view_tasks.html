@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<table width=80% border=1>
+    <tr><th>ID</th><th>Раздел</th><th>Заголовок</th><th>Содержимое</th><th>Дата создания</th>
+        <th>Рейтинг</th><th>ID author</th></tr>
+    {% for u in tasks%}
+    <tr>
+        <td><a href="task/{{u.id}}">{{u.id}}</a></td>
+        <td>{{u.subject}}</td>
+        <td>{{u.title}}</td>
+        <td>{{u.content}}</td>
+        <td>{{u.created_date}}</td>
+        <td>{{u.rating}}</td>
+        <td>{{u.user_id}}</td>
+        <td>{{u.user_task}}</td>
+        <td>{{u.solve_task}}</td>
+        
+    </tr>
+    {% endfor %}
+</table>
+
+{% endblock %}
