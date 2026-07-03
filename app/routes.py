@@ -1,6 +1,6 @@
-from flask import render_template, flash, redirect, url_for
+from flask import render_template, flash, redirect, url_for, abort
 from app import app,db
-from app.forms import LoginForm, RegistrationForm, AdminRoleForm, CreateTask
+from app.forms import LoginForm, RegistrationForm, AdminRoleForm, CreateTask, EditTask
 from flask_login import current_user, login_user,logout_user
 import sqlalchemy as sa
 import sqlalchemy.orm as so
@@ -10,6 +10,8 @@ from flask import request
 from urllib.parse import urlsplit
 from datetime import datetime, timezone
 from app.forms import EditProfileForm
+
+from flask_login import login_required
 
 
 
@@ -229,9 +231,31 @@ def view_tasks():
 @login_required
 def task(id):
     task2 = db.first_or_404(sa.select(Task).where(Task.id == id))
-    print(f"Получен id: {task2} (тип: {type(task2)})")
-    content2='3434324'
+    
     return render_template('task.html', task=task2 )
+
+@app.route('/task/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_task(id):
+    edittask = db.first_or_404(sa.select(Task).where(Task.id == id))
+    #пользователь может редактировать только свои задачи
+    if edittask.user_id != current_user.id:
+        abort(403)
+    
+    #form = EditTask(title=edittask.title, content=edittask.content, subject=edittask.subject)
+    form = EditTask(obj=edittask)
+    
+    if request.method == 'POST' and form.validate_on_submit():
+        form.populate_obj(edittask)  # обновляем объект данными из формы
+        db.session.commit()
+        return redirect(url_for('task', id=edittask.id))
+    '''
+    if form.validate():
+        form.populate_obj(edittask)  # автоматически заполняет объект task данными из формы
+        db.session.commit()
+        return redirect(url_for('task', id=edittask.id))
+    '''
+    return render_template('edit_task.html', form=form, id=edittask.id)
 
 def is_admin():
     # Проверяем, залогинен ли пользователь вообще

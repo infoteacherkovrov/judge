@@ -3,9 +3,10 @@ from wtforms import StringField, PasswordField, BooleanField, SubmitField,Select
 from wtforms.validators import ValidationError, DataRequired, Email, EqualTo
 import sqlalchemy as sa
 from app import db
-from app.models import User, Role
+from app.models import User, Role,Task
 from wtforms import TextAreaField
 from wtforms.validators import Length
+
 
 class LoginForm(FlaskForm):
     username = StringField('Username', validators=[DataRequired()])
@@ -62,4 +63,8 @@ class CreateTask(FlaskForm):
     submit = SubmitField('Create task')
     
    
-    
+class EditTask(FlaskForm):
+    subject = StringField('Subject', validators=[DataRequired()])
+    title = StringField('Title', validators=[DataRequired()])
+    content = TextAreaField('Content', validators=[Length(min=0, max=1400)])
+    submit = SubmitField('Edit task')
