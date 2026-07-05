@@ -13,8 +13,20 @@ from app.forms import EditProfileForm
 
 from flask_login import login_required
 from sqlalchemy import select
+from flask import abort
+from functools import wraps
 
+from sqlalchemy.orm import selectinload
 
+def admin_required(f):
+    @wraps(f)
+    @login_required
+    def decorated_function(*args, **kwargs):
+        # Проверяем, существует ли роль и равна ли она 'admin'
+        if not current_user.role or current_user.role.rolename != 'admin':
+            return abort(403) # Forbidden
+        return f(*args, **kwargs)
+    return decorated_function
 
 
 @app.route('/')
@@ -234,7 +246,9 @@ def view_tasks():
 @app.route('/task/<id>', methods=['GET','POST'])
 @login_required
 def task(id):
-    task2 = db.first_or_404(sa.select(Task).where(Task.id == id))
+    task2 = db.session.get(Task, id)
+    if not task2:
+        return abort(404)
     form = SubmitForm()
     if form.validate_on_submit():
         
@@ -258,8 +272,33 @@ def task(id):
         db.session.add(newans)
         db.session.commit()
         flash('Your changes have been saved.')
+    if is_admin():
+        stmt = (
+            select(Solve)
+            .where(Solve.task_id == id)
+            .order_by(Solve.created_date.desc())
+            .options(
+                selectinload(Solve.solver),  # Подгружаем пользователя (поле solver)
+                selectinload(Solve.task)    # Подгружаем задачу (на всякий случай)
+            )
+        )
+    else:
+        stmt = (
+            select(Solve)
+            .where(Solve.task_id == id)
+            .where(Solve.user_id == current_user.id)
+            .order_by(Solve.created_date.desc())
+            .options(
+                selectinload(Solve.solver),  # Подгружаем пользователя (поле solver)
+                selectinload(Solve.task)    # Подгружаем задачу (на всякий случай)
+            )
+        )
+        
+    
+    solution = db.session.scalars(stmt).all()
+    
        
-    return render_template('task.html', task=task2,is_admin=is_admin, form=form)
+    return render_template('task.html', task=task2,is_admin=is_admin, form=form, solution=solution)
 
 @app.route('/task/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
@@ -329,13 +368,27 @@ def solution_task(id):
     return render_template('solution.html', solution_task=soltn, name=id)
 
 @app.route('/solutions', methods=['GET'])
-@login_required
+@admin_required
 def solutions():
+    from sqlalchemy.orm import selectinload
     if not current_user.is_authenticated:
         return redirect(url_for('index'))
+    '''
     soltn = db.session.scalars(sa.select(Solve)).all()
     
     return render_template('solutions.html', solutions=soltn)
+    
+    '''
+    stmt = (
+        sa.select(Solve)
+        .options(
+            selectinload(Solve.solver),   # Подгружаем пользователя (поле solver)
+            selectinload(Solve.task)     # Подгружаем задачу (поле task)
+        )
+    )
+    solutions = db.session.scalars(stmt).all()
+    
+    return render_template('solutions.html', solutions=solutions,is_admin=is_admin)
                    
 
 def is_admin():
@@ -345,7 +398,8 @@ def is_admin():
     
     # Тут мы проверяем имя роли. У тебя в модели Role поле называется 'rolename'
     # Если у пользователя нет роли (rolet равен None), то он точно не админ
-    if not current_user.rolet:
+    if not current_user.role:
         return False
         
-    return current_user.rolet.rolename == 'admin'
+    return current_user.role.rolename == 'admin'
+

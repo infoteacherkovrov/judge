@@ -14,7 +14,7 @@ class Role(UserMixin,db.Model):
     id: so.Mapped[int] = so.mapped_column(primary_key=True)
     rolename:so.Mapped[str] = so.mapped_column(sa.String(30), index=True,
                                                 unique=True)
-    roles: so.WriteOnlyMapped[list['User']] = so.relationship(back_populates='rolet')
+    users: so.WriteOnlyMapped[list['User']] = so.relationship(back_populates='role')
     
     def __repr__(self):
         return '<Role {}>'.format(self.rolename)
@@ -37,11 +37,12 @@ class User(UserMixin, db.Model):
         default=lambda: datetime.now(timezone.utc))
     
     role_id: so.Mapped[int] = so.mapped_column(sa.ForeignKey(Role.id),index=True)
-    rolet: so.Mapped['Role'] = so.relationship(back_populates='roles')
     
-    task_user: so.Mapped['Task']=so.relationship(back_populates='user_task')
+    role: so.Mapped['Role'] = so.relationship(back_populates='users')
     
-    solve_user: so.Mapped[list['Solve']] = so.relationship(back_populates='user_solve')
+    task_user: so.Mapped['Task']=so.relationship(back_populates='creator')
+    
+    solve_user: so.Mapped[list['Solve']] = so.relationship(back_populates='solver')
     
     def __repr__(self):
         return '<User {}>'.format(self.username)
@@ -85,9 +86,9 @@ class Task(db.Model):
     rating: so.Mapped[int] = so.mapped_column(sa.Integer,nullable=True,default=1)
     user_id: so.Mapped[int] = so.mapped_column(sa.ForeignKey(User.id),
                                                nullable = True)
-    user_task: so.Mapped['User'] = so.relationship(back_populates='task_user')
+    creator: so.Mapped['User'] = so.relationship(back_populates='task_user')
     
-    solve_task: so.Mapped['Solve'] = so.relationship(back_populates='task_solve',cascade="all,delete")
+    solve_task: so.Mapped[list['Solve']] = so.relationship(back_populates='task',cascade="all,delete")
     
     def __repr__(self):
         return '<Task {}>'.format(self.title)
@@ -106,8 +107,8 @@ class Solve(db.Model):
     task_id: so.Mapped[int] = so.mapped_column(sa.ForeignKey(Task.id),
                                                nullable=True)
   
-    user_solve: so.Mapped['User'] = so.relationship(back_populates='solve_user')
-    task_solve: so.Mapped['Task'] = so.relationship(back_populates='solve_task')
+    solver: so.Mapped['User'] = so.relationship(back_populates='solve_user')
+    task: so.Mapped['Task'] = so.relationship(back_populates='solve_task')
     
     
  

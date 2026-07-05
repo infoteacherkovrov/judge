@@ -18,8 +18,8 @@
         {% for u in solutions%}
         <tr>
             <td>{{u.id}}</td>
-            <td>{{u.user_id}}</td>
-            <td>{{u.task_id}}</td>
+            <td>{{u.solver.username}}</td>
+            <td>{{u.task.title}}</td>
             <td>{{u.created_date}}</td>
             <td>{{u.accept}}</td>
        
