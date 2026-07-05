@@ -1,6 +1,6 @@
 from flask import render_template, flash, redirect, url_for, abort
 from app import app,db
-from app.forms import LoginForm, RegistrationForm, AdminRoleForm, CreateTask, EditTask
+from app.forms import LoginForm, RegistrationForm, AdminRoleForm, CreateTask, EditTask, DeleteForm
 from flask_login import current_user, login_user,logout_user
 import sqlalchemy as sa
 import sqlalchemy.orm as so
@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from app.forms import EditProfileForm
 
 from flask_login import login_required
+from sqlalchemy import select
 
 
 
@@ -221,11 +222,14 @@ def create_task():
 @app.route('/view_tasks', methods=['GET'])
 @login_required
 def view_tasks():
+    '''
     if not is_admin():
         flash('У вас нет прав для доступа к этой странице', 'danger')
         return redirect(url_for('index'))  # или url_for('login'), куда хочешь редиректить
+        '''
     tasks = db.session.scalars(sa.select(Task)).all()
-    return render_template('view_tasks.html', tasks=tasks)
+    form = DeleteForm()
+    return render_template('view_tasks.html', tasks=tasks,form=form,is_admin=is_admin)
 
 @app.route('/task/<id>')
 @login_required
@@ -256,6 +260,40 @@ def edit_task(id):
         return redirect(url_for('task', id=edittask.id))
     '''
     return render_template('edit_task.html', form=form, id=edittask.id)
+
+@app.route('/task/<int:id>/delete', methods=['POST'])
+@login_required
+def delete_task(id):
+       
+    stmt = select(Task).where(Task.id == id)
+    result = db.session.execute(stmt)
+    deltask = result.scalars().first()
+
+    if not task:
+        flash('Задача не найдена', 'warning')
+        return redirect(url_for('view_tasks'))
+    
+    if not is_admin():
+        abort(403)
+        
+    try:
+        db.session.delete(deltask)
+        db.session.commit()
+        flash('Задача успешно удалена', 'success')
+    except Exception as e:
+        db.session.rollback()
+        # Логирование ошибки лучше делать через current_app.logger
+        flash('Ошибка при удалении задачи', 'danger')
+
+    return redirect(url_for('view_tasks'))    
+    
+     
+    if is_admin() and deltask:  # Проверяем, что запись существует
+        db.session.delete(deltask)  # Помечаем объект для удаления
+        db.session.commit()  # Сохраняем изменения в базе
+    tasks = db.session.scalars(sa.select(Task)).all()
+    return render_template('view_tasks.html', tasks=tasks)
+        
 
 def is_admin():
     # Проверяем, залогинен ли пользователь вообще

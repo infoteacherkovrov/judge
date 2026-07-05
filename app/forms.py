@@ -6,7 +6,7 @@ from app import db
 from app.models import User, Role,Task
 from wtforms import TextAreaField
 from wtforms.validators import Length
-
+from wtforms import HiddenField
 
 class LoginForm(FlaskForm):
     username = StringField('Username', validators=[DataRequired()])
@@ -68,3 +68,7 @@ class EditTask(FlaskForm):
     title = StringField('Title', validators=[DataRequired()])
     content = TextAreaField('Content', validators=[Length(min=0, max=1400)])
     submit = SubmitField('Edit task')
+    
+class DeleteForm(FlaskForm):
+    # Это поле нужно только для CSRF токена, если используешь hidden_tag()
+    csrf_token = HiddenField() 

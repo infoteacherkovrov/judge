@@ -79,6 +79,7 @@ class Task(UserMixin, db.Model):
     
     content: so.Mapped[str] = so.mapped_column(sa.String, nullable=True, default='Условие')
     subject: so.Mapped[str] = so.mapped_column(sa.String, nullable=True, default='Без темы')
+    
     created_date: so.Mapped[datetime] = so.mapped_column(
         index=True, default=lambda: datetime.now(timezone.utc))
     rating: so.Mapped[int] = so.mapped_column(sa.Integer,nullable=True,default=1)

@@ -1,7 +1,8 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Admin Panel</title>
+{% extends "base.html" %}
+
+{% block content %}
+
+  
     <!-- Подключи свои стили или используй Bootstrap для красоты -->
     <style>
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
@@ -11,8 +12,6 @@
         .success { background-color: #d4edda; color: #155724; }
         .danger { background-color: #f8d7da; color: #721c24; }
     </style>
-</head>
-<body>
     <h1>Управление пользователями</h1>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -23,7 +22,7 @@
       {% endif %}
     {% endwith %}
 
-    <table>
+    <table class="table table-striped table-hover">
         <thead>
             <tr>
                 <th>ID</th>
@@ -67,5 +66,4 @@
             {% endfor %}
         </tbody>
     </table>
-</body>
-</html>
+{% endblock %}

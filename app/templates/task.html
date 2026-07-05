@@ -5,9 +5,11 @@
         <tr valign="top">
             
             <td>
-                <h1>Task: {{ task.id }}</h1>
-                {{task.title}}<br>
-                {{task.content|safe}}
+                Задача: {{ task.id }}
+                <h1>{{task.title}}</h1>
+                <p>{{task.content|safe}}</p>
+                <p>Тема: {{task.subject}}<br>
+                Рейтинг: {{task.rating}}</p>
                 
             </td>
             

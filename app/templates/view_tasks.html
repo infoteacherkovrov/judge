@@ -1,29 +1,104 @@
 {% extends "base.html" %}
 
 {% block content %}
-
-<table width=80% border=1>
-    <tr><th>ID</th><th>Раздел</th><th>Заголовок</th><th>Содержимое</th><th>Дата создания</th>
-        <th>Рейтинг</th><th>ID author</th></tr>
+<h2>Список задач</h2>
+<table class="table table-striped table-hover">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Раздел</th>
+        <th>Заголовок</th>
+        <th>Содержимое</th>
+        <th>Дата создания</th>
+        <th>Рейтинг</th>
+        <th>Автор</th>
+        <th></th>
+        <th></th>
+        <th>Действия</th>
+      </tr>
+    </thead>
     {% for u in tasks%}
     <tr>
        
         <td>{{u.id}}</td>
         <td>{{u.subject}}</td>
         <td>{{u.title}}</td>
-        <td>{{u.content | truncate(15, killwords=true)}}</td>
+        <td>{{u.content | default('', true) | truncate(15, killwords=true)}}</td>
         <td>{{u.created_date}}</td>
         <td>{{u.rating}}</td>
         <td>{{u.user_id}}</td>
         <td>{{u.user_task}}</td>
         <td>{{u.solve_task}}</td>
-        <td><a href="task/{{u.id}}">View</a></td>
-        <td><a href="task/{{u.id}}/edit">Edit</a></td>
+        <td><a href="task/{{u.id}}" class="btn btn-outline-primary btn-sm me-1"> View</a></td>
+        {% if is_admin()%}
+        <td><a href="task/{{u.id}}/edit" class="btn btn-outline-primary btn-sm me-1">Edit</a></td>
+        <!--
         <td><a href="task/{{u.id}}/delete">Delete</a></td>
+        -->
+        
+        <td>
+            <button type="button" 
+                    class="btn btn-danger btn-sm" 
+                    onclick="openDeleteModal({{ u.id }})">
+              Удалить
+            </button>
+        </td>
+        {% endif %}
 
         
     </tr>
     {% endfor %}
 </table>
 
+<!-- === МОДАЛЬНОЕ ОКНО (ОДНО НА ВСЮ СТРАНИЦУ) === -->
+  <div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Подтверждение удаления</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          Вы действительно хотите удалить задачу №<strong id="recordIdDisplay"></strong>?<br>
+          <span class="text-danger">Это действие нельзя отменить!</span>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+          
+          <!-- Форма для POST запроса -->
+          <form id="deleteTaskForm" method="post">
+            {{ form.hidden_tag() }}
+            <button type="submit" class="btn btn-danger">Да, удалить</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+{% endblock %}
+
+
+{% block scripts %}
+<script>
+  function openDeleteModal(taskId) {
+    const modalEl = document.getElementById('confirmDeleteModal');
+    const recordIdDisplay = document.getElementById('recordIdDisplay');
+    const deleteForm = document.getElementById('deleteTaskForm');
+
+    if (!modalEl || !recordIdDisplay || !deleteForm) {
+      console.error('Элементы модального окна не найдены!');
+      return;
+    }
+
+    // 1. Обновляем текст в окне
+    recordIdDisplay.textContent = taskId;
+    
+    // 2. Меняем action формы на нужный URL
+    deleteForm.action = '/task/'+taskId+'/delete';
+
+    // 3. Открываем модалку
+    const modal = new bootstrap.Modal(modalEl);
+    modal.show();
+  }
+</script>
 {% endblock %}
