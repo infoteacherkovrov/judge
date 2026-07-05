@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Решения для задачи {{ name }}</h2>
+    {%  if solution_task %}
+        {% for u in solution_task%}
+            <td>{{u.id}}</td>
+       
+       
+        {% endfor %}
+    {% else %}
+    <p class="text-muted">Пока нет ни одного решения для этой задачи.</p>
+
+    {%endif%}
+
+
+{% endblock %}

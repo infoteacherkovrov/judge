@@ -8,6 +8,7 @@
                 Задача: {{ task.id }}
                 <h1>{{task.title}}</h1>
                 <p>{{task.content|safe}}</p>
+                {% if is_admin()%}<p> Ответ: {{task.answer}}{% endif %}
                 <p>Тема: {{task.subject}}<br>
                 Рейтинг: {{task.rating}}</p>
                 
@@ -16,4 +17,16 @@
         </tr>
         
 </table>
+<br>
+<br>
+{% from 'bootstrap5/form.html' import render_form %}
+
+    <div class="row justify-content-left">
+        <div class="col-md-6">
+            <form action="" method="post">
+                {{ form.hidden_tag() }}
+                {{ render_form(form) }}
+            </form>
+        </div> 
+    </div>
 {% endblock %}

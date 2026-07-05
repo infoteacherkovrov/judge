@@ -1,10 +1,10 @@
 from flask import render_template, flash, redirect, url_for, abort
 from app import app,db
-from app.forms import LoginForm, RegistrationForm, AdminRoleForm, CreateTask, EditTask, DeleteForm
+from app.forms import LoginForm, RegistrationForm, AdminRoleForm, CreateTask, EditTask, DeleteForm, SubmitForm
 from flask_login import current_user, login_user,logout_user
 import sqlalchemy as sa
 import sqlalchemy.orm as so
-from app.models import User, Role,Task
+from app.models import User, Role, Task, Solve
 from flask_login import login_required
 from flask import request
 from urllib.parse import urlsplit
@@ -205,14 +205,14 @@ def create_task():
         print(f"Получен content: {form.content.data} (тип: {type(form.content.data)})")
         print(f"Получен subject: {form.subject.data} (тип: {type(form.subject.data)})")
         
-        newtask = Task(title=form.title.data, content=form.content.data, subject=form.subject.data)
+        newtask = Task(title=form.title.data, content=form.content.data, subject=form.subject.data,answer=form.answer.data)
         newtask.created_date = datetime.now(timezone.utc)
         newtask.user_id=current_user.id
         
         db.session.add(newtask)
         db.session.commit()
         flash('Your changes have been saved.')
-        return redirect(url_for('create_task'))
+        return redirect(url_for('view_tasks'))
     '''elif request.method == 'GET':
         form.username.data = current_user.username
         form.about_me.data = current_user.about_me'''
@@ -231,12 +231,35 @@ def view_tasks():
     form = DeleteForm()
     return render_template('view_tasks.html', tasks=tasks,form=form,is_admin=is_admin)
 
-@app.route('/task/<id>')
+@app.route('/task/<id>', methods=['GET','POST'])
 @login_required
 def task(id):
     task2 = db.first_or_404(sa.select(Task).where(Task.id == id))
-    
-    return render_template('task.html', task=task2 )
+    form = SubmitForm()
+    if form.validate_on_submit():
+        
+        
+        newans = Solve(content=form.answer.data)
+        
+        print("--- ОТЛАДКА: Форма прошла валидацию ---")
+        
+        
+        newans.created_date = datetime.now(timezone.utc)
+        newans.user_id=current_user.id
+        newans.task_id=id
+        
+        
+        curr = db.session.get(Task, id)
+        print(f"Получен Answer: {curr.answer} (тип: {type(curr.answer)})")
+        print(f"Получен form.answer.data: {form.answer.data} (тип: {type(form.answer.data)})")
+        newans.accept=(curr.answer==form.answer.data)
+        
+        
+        db.session.add(newans)
+        db.session.commit()
+        flash('Your changes have been saved.')
+       
+    return render_template('task.html', task=task2,is_admin=is_admin, form=form)
 
 @app.route('/task/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
@@ -264,7 +287,9 @@ def edit_task(id):
 @app.route('/task/<int:id>/delete', methods=['POST'])
 @login_required
 def delete_task(id):
-       
+    
+    
+        
     stmt = select(Task).where(Task.id == id)
     result = db.session.execute(stmt)
     deltask = result.scalars().first()
@@ -272,9 +297,9 @@ def delete_task(id):
     if not task:
         flash('Задача не найдена', 'warning')
         return redirect(url_for('view_tasks'))
-    
     if not is_admin():
         abort(403)
+    
         
     try:
         db.session.delete(deltask)
@@ -293,7 +318,25 @@ def delete_task(id):
         db.session.commit()  # Сохраняем изменения в базе
     tasks = db.session.scalars(sa.select(Task)).all()
     return render_template('view_tasks.html', tasks=tasks)
-        
+
+@app.route('/task/<int:id>/solution', methods=['GET','POST'])
+@login_required
+def solution_task(id):
+    if not current_user.is_authenticated:
+        return redirect(url_for('index'))
+    soltn = db.session.scalars(sa.select(Solve).where(Solve.task_id == id)).all()
+    
+    return render_template('solution.html', solution_task=soltn, name=id)
+
+@app.route('/solutions', methods=['GET'])
+@login_required
+def solutions():
+    if not current_user.is_authenticated:
+        return redirect(url_for('index'))
+    soltn = db.session.scalars(sa.select(Solve)).all()
+    
+    return render_template('solutions.html', solutions=soltn)
+                   
 
 def is_admin():
     # Проверяем, залогинен ли пользователь вообще

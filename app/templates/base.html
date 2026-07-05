@@ -30,7 +30,8 @@
             {% endif %}
             
             {% if current_user.rolet and current_user.rolet.rolename == 'admin' %}
-                <a href="{{ url_for('admin_users') }}">AdminPanel</a>
+               <a href="{{ url_for('solutions') }}">Solutions</a>
+               <a href="{{ url_for('admin_users') }}">AdminPanel</a>
                <a href="{{ url_for('create_task') }}">CreateTask</a>
             {% endif %}
 

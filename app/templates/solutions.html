@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Решения</h2>
+<table class="table table-striped table-hover">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>user_id</th>
+        <th>task_id</th>
+        <th>created_date</th>
+        <th>accept</th>
+        
+      </tr>
+    </thead>
+    {%  if solutions %}
+    
+        {% for u in solutions%}
+        <tr>
+            <td>{{u.id}}</td>
+            <td>{{u.user_id}}</td>
+            <td>{{u.task_id}}</td>
+            <td>{{u.created_date}}</td>
+            <td>{{u.accept}}</td>
+       
+        </tr>
+        {% endfor %}
+    {% else %}
+    <p class="text-muted">Пока нет ни одного решения для этой задачи.</p>
+
+    {%endif%}
+    </table>
+
+
+{% endblock %}

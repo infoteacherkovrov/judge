@@ -71,7 +71,7 @@ class Post(db.Model):
     def __repr__(self):
         return '<Post {}>'.format(self.body)
     
-class Task(UserMixin, db.Model):
+class Task(db.Model):
     __tablename__ ='tasks'
     
     id: so.Mapped[int] = so.mapped_column(primary_key=True, autoincrement=True)
@@ -79,7 +79,7 @@ class Task(UserMixin, db.Model):
     
     content: so.Mapped[str] = so.mapped_column(sa.String, nullable=True, default='Условие')
     subject: so.Mapped[str] = so.mapped_column(sa.String, nullable=True, default='Без темы')
-    
+    answer: so.Mapped[str] = so.mapped_column(sa.String, nullable=True, default='Без ответа')
     created_date: so.Mapped[datetime] = so.mapped_column(
         index=True, default=lambda: datetime.now(timezone.utc))
     rating: so.Mapped[int] = so.mapped_column(sa.Integer,nullable=True,default=1)
@@ -93,7 +93,7 @@ class Task(UserMixin, db.Model):
         return '<Task {}>'.format(self.title)
     
 
-class Solve(UserMixin, db.Model):
+class Solve(db.Model):
     __tablename__ ='solves'
     
     id: so.Mapped[int] = so.mapped_column(primary_key=True,autoincrement=True)

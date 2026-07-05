@@ -60,6 +60,7 @@ class CreateTask(FlaskForm):
     subject = StringField('Subject', validators=[DataRequired()])
     title = StringField('Title', validators=[DataRequired()])
     content = TextAreaField('Content', validators=[Length(min=0, max=1400)])
+    answer = StringField('Answer', validators=[DataRequired()])
     submit = SubmitField('Create task')
     
    
@@ -67,8 +68,15 @@ class EditTask(FlaskForm):
     subject = StringField('Subject', validators=[DataRequired()])
     title = StringField('Title', validators=[DataRequired()])
     content = TextAreaField('Content', validators=[Length(min=0, max=1400)])
+    answer = StringField('Answer', validators=[DataRequired()])
     submit = SubmitField('Edit task')
     
 class DeleteForm(FlaskForm):
     # Это поле нужно только для CSRF токена, если используешь hidden_tag()
     csrf_token = HiddenField() 
+
+class SubmitForm(FlaskForm):
+    # Это поле нужно только для CSRF токена, если используешь hidden_tag()
+    csrf_token = HiddenField() 
+    answer = StringField('Enter your answer:', validators=[DataRequired()])
+    submit = SubmitField('Submit')
