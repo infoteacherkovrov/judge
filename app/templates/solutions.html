@@ -6,10 +6,12 @@
     <thead>
       <tr>
         <th>ID</th>
-        <th>user_id</th>
-        <th>task_id</th>
-        <th>created_date</th>
-        <th>accept</th>
+        <th>Date</th>
+        <th>UserName</th>
+        <th>TaskTitle</th>
+        
+        <th>UserAnswer</th>
+        <th>Result</th>
         
       </tr>
     </thead>
@@ -18,10 +20,26 @@
         {% for u in solutions%}
         <tr>
             <td>{{u.id}}</td>
-            <td>{{u.solver.username}}</td>
-            <td>{{u.task.title}}</td>
-            <td>{{u.created_date}}</td>
-            <td>{{u.accept}}</td>
+            <td>{{u.created_date.strftime('%Y-%m-%d %H:%M')}}</td>
+            {% if u.solver %}
+                <td><a href="/user/{{ u.solver.username }}">{{u.solver.username}}</a></td>
+            {% else %}
+                <td><span class="text-muted">Пользователь удален</span></td>
+            {% endif %}
+            {% if u.task %}
+                <td><a href="/task/{{ u.task.id }}">{{u.task.title}}</a></td>
+            {% else %}
+                <td><span class="text-muted">Задача удалена</span></td>
+            {% endif %}
+            <td>{{u.content}}</td>
+            <td>
+                {% if u.accept %}
+                        <span class="badge bg-success">Принято ✅</span>
+                    {% else %}
+                        <span class="badge bg-danger">Неверно ⚠️</span>
+                    {% endif %}
+                
+            </td>
        
         </tr>
         {% endfor %}

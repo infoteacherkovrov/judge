@@ -7,7 +7,7 @@
             <td>
                 <h1>User: {{ user.username }}</h1>
                 {% if user.about_me %}<p>{{ user.about_me }}</p>{% endif %}
-                {% if user.last_seen %}<p>Last seen on: {{ user.last_seen }}</p>{% endif %}
+                {% if user.last_seen %}<p>Last seen on: {{ user.last_seen.strftime('%Y-%m-%d %H:%M') }}</p>{% endif %}
             </td>
             
         </tr>
@@ -20,4 +20,57 @@
     {% for post in posts %}
         {% include '_post.html' %}
     {% endfor %}
+
+{% if solution %}
+    <table class="table table-striped table-hover">
+        <thead>
+            <tr>
+                <th>ID Решения</th>
+                <th>Дата</th>
+                <th>Пользователь</th>
+                <th>Задача</th>
+                <th>Текст решения</th>
+                <th>Статус</th>
+                
+            </tr>
+        </thead>
+        <tbody>
+            {% for sol in solution %}
+            <tr>
+                <td>{{ sol.id }}</td>
+                <td>{{ sol.created_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                <!-- Благодаря selectinload, обращение sol.solver не делает новый запрос к БД -->
+                <td>
+                    <a href="{{ url_for('user', username=sol.solver.username) }}">
+                        {{ sol.solver.username }}
+                    </a>
+                </td>
+                
+                {% if sol.task %}
+                <td><a href="/task/{{ sol.task.id }}">{{sol.task.title}}</a></td>
+                {% else %}
+                <td><span class="text-muted">Задача удалена</span></td>
+                {% endif %}
+
+                <td style="max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                    {{ sol.content[:100] }}{% if sol.content|length > 100 %}...{% endif %}
+                </td>
+                <td>
+                    {% if sol.accept %}
+                        <span class="badge bg-success">Принято ✅</span>
+                    {% else %}
+                        <span class="badge bg-danger" >Неверно ⚠️</span>
+                    {% endif %}
+                </td>
+               
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <div class="alert alert-info" role="alert">
+        У вас пока нет отправленных решений.
+    </div>
+{% endif %}
+ 
 {% endblock %}

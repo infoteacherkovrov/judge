@@ -6,14 +6,15 @@
     <thead>
       <tr>
         <th>ID</th>
+        <th>Дата создания</th>
         <th>Раздел</th>
         <th>Заголовок</th>
         <th>Содержимое</th>
         {% if is_admin()%}<th>Ответ</th>{% endif %}
         <th>Рейтинг</th>
-        <th>Дата создания</th>
+        
         <th>Автор</th>
-        <th></th>
+        <th>Решений</th>
         <th></th>
         <th>Действия</th>
       </tr>
@@ -22,6 +23,7 @@
     <tr>
        
         <td>{{u.id}}</td>
+        <td>{{u.created_date.strftime('%Y-%m-%d %H:%M')}}</td>
         <td>{{u.subject}}</td>
         <td>{{u.title}}</td>
         <td>{{u.content | default('', true) | truncate(15, killwords=true)}}</td>
@@ -29,10 +31,11 @@
         <td>{{u.answer}}</td>
         {% endif %}
         <td>{{u.rating}}</td>
-        <td>{{u.created_date}}</td>
-        <td>{{u.user_id}}</td>
+    
+        <td>{{ u.user_id }}</td>
+            
         <td>{{u.user_task}}</td>
-        <td>{{u.solve_task}}</td>
+        <td>{{u.solve_task|length}}</td>
         <td><a href="task/{{u.id}}" class="btn btn-outline-primary btn-sm me-1"> View</a></td>
         {% if is_admin()%}
         <td><a href="task/{{u.id}}/edit" class="btn btn-outline-primary btn-sm me-1">Edit</a></td>

@@ -95,7 +95,24 @@ def user(username):
         {'author': user, 'body': 'Test post #1'},
         {'author': user, 'body': 'Test post #2'}
     ]
-    return render_template('user.html', user=user, posts=posts)
+    
+    
+    stmt = (
+            select(Solve)
+            
+            .join(Solve.solver)  # Важно: явно указываем JOIN, чтобы можно было фильтровать по полям пользователя
+            .where(User.username == username) # Сравниваем поле username пользователя со строкой
+            .order_by(Solve.created_date.desc())
+            .options(
+                selectinload(Solve.solver),  # Подгружаем пользователя (поле solver)
+                selectinload(Solve.task)    # Подгружаем задачу (на всякий случай)
+            )
+        )
+        
+    
+    solution = db.session.scalars(stmt).all()
+     
+    return render_template('user.html', user=user, posts=posts, solution=solution)
 
 @app.before_request
 def before_request():
@@ -384,7 +401,9 @@ def solutions():
         .options(
             selectinload(Solve.solver),   # Подгружаем пользователя (поле solver)
             selectinload(Solve.task)     # Подгружаем задачу (поле task)
+            
         )
+        .order_by(Solve.created_date.desc())
     )
     solutions = db.session.scalars(stmt).all()
     

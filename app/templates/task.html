@@ -59,7 +59,7 @@
                     {% if sol.accept %}
                         <span class="badge bg-success">Принято ✅</span>
                     {% else %}
-                        <span class="badge bg-warning text-dark">Неверно ⚠️</span>
+                        <span class="badge bg-danger">Неверно ⚠️</span>
                     {% endif %}
                 </td>
                 <td>{{ sol.created_date.strftime('%Y-%m-%d %H:%M') }}</td>
@@ -69,7 +69,7 @@
     </table>
 {% else %}
     <div class="alert alert-info" role="alert">
-        Пока нет ни одного решения для этой задачи. Будь первым!
+        У вас пока нет отправленных решений.
     </div>
 {% endif %}
 
