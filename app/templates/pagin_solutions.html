@@ -1,0 +1,47 @@
+<h2>Решения</h2>
+<table class="table table-striped table-hover">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Date</th>
+        <th>UserName</th>
+        <th>TaskTitle</th>
+        
+        <th>UserAnswer</th>
+        <th>Result</th>
+        
+      </tr>
+    </thead>
+    {%  if solutions %}
+    
+        {% for u in solutions%}
+        <tr>
+            <td>{{u.id}}</td>
+            <td>{{u.created_date.strftime('%Y-%m-%d %H:%M')}}</td>
+            {% if u.solver %}
+                <td><a href="{{ url_for('user', username= u.solver.username) }}">{{u.solver.username}}</a></td>
+            {% else %}
+                <td><span class="text-muted">Пользователь удален</span></td>
+            {% endif %}
+            {% if u.task %}
+                <td><a href="/task/{{ u.task.id }}">{{u.task.title}}</a></td>
+            {% else %}
+                <td><span class="text-muted">Задача удалена</span></td>
+            {% endif %}
+            <td>{{u.content}}</td>
+            <td>
+                {% if u.accept %}
+                        <span class="badge bg-success">Принято ✅</span>
+                    {% else %}
+                        <span class="badge bg-danger">Неверно ⚠️</span>
+                    {% endif %}
+                
+            </td>
+       
+        </tr>
+        {% endfor %}
+    {% else %}
+    <p class="text-muted">Пока нет ни одного решения для этой задачи.</p>
+
+    {%endif%}
+</table>

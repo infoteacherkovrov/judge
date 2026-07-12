@@ -3,10 +3,11 @@ from wtforms import StringField, PasswordField, BooleanField, SubmitField,Select
 from wtforms.validators import ValidationError, DataRequired, Email, EqualTo
 import sqlalchemy as sa
 from app import db
-from app.models import User, Role,Task
+from app.models import User, Role,Task,Topic
 from wtforms import TextAreaField
 from wtforms.validators import Length
 from wtforms import HiddenField
+from wtforms_alchemy.fields import QuerySelectField 
 
 class LoginForm(FlaskForm):
     username = StringField('Username', validators=[DataRequired()])
@@ -58,6 +59,13 @@ class AdminRoleForm(FlaskForm):
     
 class CreateTask(FlaskForm):
     subject = StringField('Subject', validators=[DataRequired()])
+    topic = QuerySelectField(
+        'Тема задачи', 
+        query_factory=lambda: Topic.query.all(), 
+        get_label='topic', 
+        allow_blank=True,  # Разрешаем оставить пустым, если тема необязательна
+        blank_text='-- Выберите тему --'
+        )
     title = StringField('Title', validators=[DataRequired()])
     content = TextAreaField('Content', validators=[Length(min=0, max=1400)])
     answer = StringField('Answer', validators=[DataRequired()])
@@ -66,6 +74,13 @@ class CreateTask(FlaskForm):
    
 class EditTask(FlaskForm):
     subject = StringField('Subject', validators=[DataRequired()])
+    topic = QuerySelectField(
+        'Тема задачи', 
+        query_factory=lambda: Topic.query.all(), 
+        get_label='topic', 
+        allow_blank=True,  # Разрешаем оставить пустым, если тема необязательна
+        blank_text='-- Выберите тему --'
+        )
     title = StringField('Title', validators=[DataRequired()])
     content = TextAreaField('Content', validators=[Length(min=0, max=1400)])
     answer = StringField('Answer', validators=[DataRequired()])
@@ -79,4 +94,9 @@ class SubmitForm(FlaskForm):
     # Это поле нужно только для CSRF токена, если используешь hidden_tag()
     csrf_token = HiddenField() 
     answer = StringField('Enter your answer:', validators=[DataRequired()])
+    submit = SubmitField('Submit')
+
+class CreateTopic(FlaskForm):
+    csrf_token = HiddenField() 
+    topic = StringField('Enter new topic:', validators=[DataRequired()])
     submit = SubmitField('Submit')

@@ -1,24 +1,26 @@
 {% extends "base.html" %}
 
 {% block content %}
-<table>
-        <tr valign="top">
-            
-            <td>
-                Задача: {{ task.id }}
-                <h1>{{task.title}}</h1>
-                <p>{{task.content|safe}}</p>
-                {% if is_admin()%}<p> Ответ: {{task.answer}}{% endif %}
-                <p>Тема: {{task.subject}}<br>
-                Рейтинг: {{task.rating}}</p>
+
+                <p align= right>Задача {{ task.id }}<br>
+                    Рейтинг: {{task.rating}}<br>
+                    {% if task.topic %}
+                     Тема: <strong>{{ task.topic.topic }}</strong>
+                {% else %}
+                     ⚠️ Тема не назначена
+                {% endif %} 
+                </p>
+                <h1 align=center>{{task.title}}</h1>
                 
-            </td>
+                
+                <p>{{task.content|safe}}</p>
+                
+                {% if is_admin()%}<p> Ответ: <strong>{{task.answer}}</strong>{% endif %}
+                
+               
+                
             
-        </tr>
-        
-</table>
-<br>
-<br>
+
 {% from 'bootstrap5/form.html' import render_form %}
 
     <div class="row justify-content-left">
@@ -36,16 +38,18 @@
         <thead>
             <tr>
                 <th>ID Решения</th>
-                <th>Пользователь</th>
-                <th>Текст решения</th>
-                <th>Статус</th>
                 <th>Дата</th>
+                <th>Пользователь</th>
+                <th>Ответ</th>
+                <th>Статус</th>
+                
             </tr>
         </thead>
         <tbody>
             {% for sol in solution %}
             <tr>
                 <td>{{ sol.id }}</td>
+                <td>{{ sol.created_date.strftime('%Y-%m-%d %H:%M') }}</td>
                 <!-- Благодаря selectinload, обращение sol.solver не делает новый запрос к БД -->
                 <td>
                     <a href="{{ url_for('user', username=sol.solver.username) }}">
@@ -62,7 +66,7 @@
                         <span class="badge bg-danger">Неверно ⚠️</span>
                     {% endif %}
                 </td>
-                <td>{{ sol.created_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                
             </tr>
             {% endfor %}
         </tbody>

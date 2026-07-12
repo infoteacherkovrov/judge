@@ -1,0 +1,39 @@
+{% if pagination.total > pagination.per_page %}
+<nav aria-label="Навигация по страницам">
+    <ul class="pagination justify-content-end">
+        <!-- Кнопка «Предыдущая» -->
+        <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+            <a class="page-link" 
+               href="{{ url_for('view_tasks', page=pagination.prev_num) }}" 
+               aria-label="Предыдущая">
+                <span aria-hidden="true">&laquo;</span>
+            </a>
+        </li>
+
+        <!-- Номера страниц -->
+        {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+            {% if page_num %}
+                <li class="page-item {% if pagination.page == page_num %}active{% endif %}">
+                    <a class="page-link" href="{{ url_for('view_tasks', page=page_num) }}">
+                        {{ page_num }}
+                    </a>
+                </li>
+            {% else %}
+                <!-- Многоточие, если пропущены страницы -->
+                <li class="page-item disabled">
+                    <span class="page-link">...</span>
+                </li>
+            {% endif %}
+        {% endfor %}
+
+        <!-- Кнопка «Следующая» -->
+        <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+            <a class="page-link" 
+               href="{{ url_for('view_tasks', page=pagination.next_num) }}" 
+               aria-label="Следующая">
+                <span aria-hidden="true">&raquo;</span>
+            </a>
+        </li>
+    </ul>
+</nav>
+{% endif %}

@@ -1,10 +1,10 @@
 from flask import render_template, flash, redirect, url_for, abort
 from app import app,db
-from app.forms import LoginForm, RegistrationForm, AdminRoleForm, CreateTask, EditTask, DeleteForm, SubmitForm
+from app.forms import LoginForm, RegistrationForm, AdminRoleForm, CreateTask, EditTask, DeleteForm, SubmitForm, CreateTopic
 from flask_login import current_user, login_user,logout_user
 import sqlalchemy as sa
 import sqlalchemy.orm as so
-from app.models import User, Role, Task, Solve
+from app.models import User, Role, Task, Solve, Topic
 from flask_login import login_required
 from flask import request
 from urllib.parse import urlsplit
@@ -17,6 +17,7 @@ from flask import abort
 from functools import wraps
 
 from sqlalchemy.orm import selectinload
+
 
 def admin_required(f):
     @wraps(f)
@@ -110,9 +111,9 @@ def user(username):
         )
         
     
-    solution = db.session.scalars(stmt).all()
+    solutions = db.session.scalars(stmt).all()
      
-    return render_template('user.html', user=user, posts=posts, solution=solution)
+    return render_template('user.html', user=user, posts=posts, solutions=solutions)
 
 @app.before_request
 def before_request():
@@ -198,7 +199,7 @@ def admin_users():
         user = User.query.get(form.user_id.data)
         
         if user:
-            old_role_name = user.rolet.rolename if user.rolet else "None"
+            old_role_name = user.role.rolename if user.role else "None"
             user.role_id = form.new_role_id.data
             db.session.commit()
             print(f"✅ УСПЕХ: Роль пользователя {user.username} изменена с '{old_role_name}' на '{Role.query.get(form.new_role_id.data).rolename}'")
@@ -233,10 +234,19 @@ def create_task():
         print(f"Получен title: {form.title.data} (тип: {type(form.title.data)})")
         print(f"Получен content: {form.content.data} (тип: {type(form.content.data)})")
         print(f"Получен subject: {form.subject.data} (тип: {type(form.subject.data)})")
-        
+       
         newtask = Task(title=form.title.data, content=form.content.data, subject=form.subject.data,answer=form.answer.data)
         newtask.created_date = datetime.now(timezone.utc)
         newtask.user_id=current_user.id
+        
+        selected_topic = form.topic.data
+        if selected_topic:
+            newtask.topic_id = selected_topic.id
+            # Также можно присвоить саму связь, SQLAlchemy сам поймет:
+            # newtask.topic = selected_topic 
+        else:
+            # Если тема не выбрана, оставляем None (так как у нас nullable=True)
+            newtask.topic_id = None
         
         db.session.add(newtask)
         db.session.commit()
@@ -247,18 +257,62 @@ def create_task():
         form.about_me.data = current_user.about_me'''
     return render_template('create_task.html', title='Create task',
                            form=form)
+    
+@app.route('/create_topic', methods=['GET', 'POST'])
+@admin_required
+def create_topic():
+    form = CreateTopic()
+    if form.validate_on_submit():
+        
+        print("--- ОТЛАДКА: Форма прошла валидацию ---")
+        print(f"Получен topic: {form.topic.data} (тип: {type(form.topic.data)})")
+               
+        newtopic = Topic(topic=form.topic.data)
+        db.session.add(newtopic)
+        db.session.commit()
+        flash('Your changes have been saved.')
+        return redirect(url_for('view_tasks'))
+    '''elif request.method == 'GET':
+        form.username.data = current_user.username
+        form.about_me.data = current_user.about_me'''
+    return render_template('create_topic.html', title='Create topic', form=form)
 
 @app.route('/view_tasks', methods=['GET'])
 @login_required
 def view_tasks():
+    
+    
+    topics = Topic.query.all()
+    selected_topic_id = request.args.get('topic_id', type=int)
+    query = Task.query.options(so.joinedload(Task.topic))
+    if selected_topic_id:
+         query = query.filter(Task.topic_id == selected_topic_id)
+    tasks = query.all() 
+    
     '''
     if not is_admin():
         flash('У вас нет прав для доступа к этой странице', 'danger')
         return redirect(url_for('index'))  # или url_for('login'), куда хочешь редиректить
         '''
-    tasks = db.session.scalars(sa.select(Task)).all()
+    
+    page = request.args.get('page', 1, type=int)  
+    #subj = request.args.get('subj')
+    #if subj:
+    #    query = Task.query.filter(Task.subject == subj)
+    #else:
+    #    query = Task.query
+  
+    query = query.order_by(Task.created_date.desc())
+    #per_page = request.args.get('per_page', 10, type=int)
+  
+    pagination = db.paginate(query,page=page, per_page=10, error_out=False)
+    tasks=pagination.items
+    next_url = url_for('view_tasks', page=pagination.next_num) if pagination.has_next else None
+    prev_url = url_for('view_tasks', page=pagination.prev_num) if pagination.has_prev else None
+    
     form = DeleteForm()
-    return render_template('view_tasks.html', tasks=tasks,form=form,is_admin=is_admin)
+    return render_template('view_tasks.html', tasks=tasks,form=form,is_admin=is_admin, next_url=next_url,
+                           prev_url=prev_url,pagination=pagination, topics=topics, selected_topic_id=selected_topic_id)
 
 @app.route('/task/<id>', methods=['GET','POST'])
 @login_required
