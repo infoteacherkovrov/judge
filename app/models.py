@@ -78,8 +78,7 @@ class Task(db.Model):
     content: so.Mapped[str] = so.mapped_column(sa.Text(), nullable=True, default='Условие')
     
     # Если тема всегда короткая - оставляем 50-100. Если нет - тоже 255.
-    subject: so.Mapped[str] = so.mapped_column(sa.String(100), nullable=True, default='Без темы')
-      
+          
     topic_id: so.Mapped[int] = so.mapped_column(sa.ForeignKey(Topic.id, name='fk_tasks_topic'), nullable=True)
     topic: so.Mapped['Topic'] = so.relationship(back_populates='tasks')
     

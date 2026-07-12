@@ -233,9 +233,9 @@ def create_task():
         print("--- ОТЛАДКА: Форма прошла валидацию ---")
         print(f"Получен title: {form.title.data} (тип: {type(form.title.data)})")
         print(f"Получен content: {form.content.data} (тип: {type(form.content.data)})")
-        print(f"Получен subject: {form.subject.data} (тип: {type(form.subject.data)})")
        
-        newtask = Task(title=form.title.data, content=form.content.data, subject=form.subject.data,answer=form.answer.data)
+       
+        newtask = Task(title=form.title.data, content=form.content.data, answer=form.answer.data)
         newtask.created_date = datetime.now(timezone.utc)
         newtask.user_id=current_user.id
         
@@ -379,7 +379,7 @@ def edit_task(id):
     if edittask.user_id != current_user.id:
         abort(403)
     
-    #form = EditTask(title=edittask.title, content=edittask.content, subject=edittask.subject)
+    
     form = EditTask(obj=edittask)
     
     if request.method == 'POST' and form.validate_on_submit():

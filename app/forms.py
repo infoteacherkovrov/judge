@@ -58,7 +58,6 @@ class AdminRoleForm(FlaskForm):
     submit = SubmitField('Change Role')
     
 class CreateTask(FlaskForm):
-    subject = StringField('Subject', validators=[DataRequired()])
     topic = QuerySelectField(
         'Тема задачи', 
         query_factory=lambda: Topic.query.all(), 
