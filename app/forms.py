@@ -72,7 +72,6 @@ class CreateTask(FlaskForm):
     
    
 class EditTask(FlaskForm):
-    subject = StringField('Subject', validators=[DataRequired()])
     topic = QuerySelectField(
         'Тема задачи', 
         query_factory=lambda: Topic.query.all(), 
