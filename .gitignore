@@ -1,21 +1,43 @@
-# Виртуальное окружение
+# Виртуальное окружение (НИКОГДА не грузи его в git!)
 venv/
-.venv/
-env/
+.env
 
-# База данных (НИКОГДА не коммить!)
+# Файлы базы данных (SQLite)
 *.db
+app.db
 instance/*.db
 
-# Лог-файлы
-logs/
-*.log
-
-# Кэш Python
+# Питонские кэши и метаданные
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
-# IDE
-.idea/
+# Логи и временные файлы
+*.log
+*.tmp
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# IDE файлы (VS Code, PyCharm)
 .vscode/
+.idea/
+*.iml
