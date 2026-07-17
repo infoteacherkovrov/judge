@@ -1,21 +1,45 @@
+{% extends "base.html" %}
+
 {% block content %}
+
 <h2>Решения</h2>
+
+<div class="filter-bar">
+    <a href="{{ url_for('view_solutions') }}" 
+       class="{% if not current_status %}btn btn-primary{% else %}btn btn-outline-primary{% endif %}">
+        Всего ∑ ({{ (total_accepted if total_accepted else 0) + (total_rejected if total_rejected else 0) }})
+    </a>
+    
+    <a href="{{ url_for('view_solutions', status='accepted') }}" 
+       class="{% if current_status == 'accepted' %}btn btn-success{% else %}btn btn-outline-success{% endif %}">
+       Принято ✅ ({{ total_accepted if total_accepted else 0 }})
+    </a>
+
+    <a href="{{ url_for('view_solutions', status='rejected') }}" 
+       class="{% if current_status == 'rejected' %}btn btn-danger{% else %}btn btn-outline-danger{% endif %}">
+       Неверно ⚠️ ({{ total_rejected if total_rejected else 0 }})
+    </a>
+</div>
+
+
+{% include 'pagin_solutions.html' %}
+
 <table class="table table-striped table-hover">
     <thead>
       <tr>
         <th>ID</th>
         <th>Date</th>
         <th>UserName</th>
-        <th>Task</th>
+        <th>TaskTitle</th>
         
         <th>UserAnswer</th>
         <th>Result</th>
         
       </tr>
     </thead>
-    {%  if solutions %}
+    {%  if pagination %}
     
-        {% for u in solutions%}
+        {% for u in pagination.items%}
         <tr>
             <td>{{u.id}}</td>
             <td>{{u.created_date.strftime('%Y-%m-%d %H:%M')}}</td>
@@ -45,7 +69,7 @@
     <p class="text-muted">Пока нет ни одного решения для этой задачи.</p>
 
     {%endif%}
-    </table>
-
+</table>
+{% include 'pagin_solutions.html' %}
 
 {% endblock %}

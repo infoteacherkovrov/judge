@@ -4,7 +4,7 @@
         <!-- Кнопка «Предыдущая» -->
         <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
             <a class="page-link" 
-               href="{{ url_for('view_solutions', page=pagination.prev_num,status=current_status) }}" 
+               href="{{ url_for('user', username=user.username, page=pagination.prev_num,status=current_status) }}" 
                aria-label="Предыдущая">
                 <span aria-hidden="true">&laquo;</span>
             </a>
@@ -14,7 +14,7 @@
         {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
             {% if page_num %}
                 <li class="page-item {% if pagination.page == page_num %}active{% endif %}">
-                    <a class="page-link" href="{{ url_for('view_solutions', page=page_num,status=current_status) }}">
+                    <a class="page-link" href="{{ url_for('user', username=user.username, page=page_num,status=current_status) }}">
                         {{ page_num }}
                     </a>
                 </li>
@@ -29,7 +29,7 @@
         <!-- Кнопка «Следующая» -->
         <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
             <a class="page-link" 
-               href="{{ url_for('view_solutions', page=pagination.next_num,status=current_status) }}" 
+               href="{{ url_for('user', username=user.username, page=pagination.next_num,status=current_status) }}" 
                aria-label="Следующая">
                 <span aria-hidden="true">&raquo;</span>
             </a>

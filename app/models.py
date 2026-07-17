@@ -112,6 +112,10 @@ class Solve(db.Model):
     solver: so.Mapped['User'] = so.relationship(back_populates='solve_user')
     task: so.Mapped['Task'] = so.relationship(back_populates='solve_task')
     
+    __table_args__ = (
+        db.Index('idx_solves_user_task', 'user_id', 'task_id'), 
+    )
+    
 
     
 

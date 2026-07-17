@@ -13,6 +13,8 @@
         </tr>
         
     </table>
+
+    
     {% if user == current_user %}
                 <p><a href="{{ url_for('edit_profile') }}">Edit your profile</a></p>
                 {% endif %}
@@ -20,8 +22,11 @@
     {% for post in posts %}
         {% include '_post.html' %}
     {% endfor %}
+    <div>
+    <h2>Solved tasks: {{solved_tasks}}</h2>
+    </div>
 
 
- 
-    {% include "pagin_solutions.html" %}
+    {% include "view_user_solutions.html" %}
+
 {% endblock %}

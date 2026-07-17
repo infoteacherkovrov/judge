@@ -17,6 +17,7 @@ from flask import abort
 from functools import wraps
 
 from sqlalchemy.orm import selectinload
+from sqlalchemy import func, select
 
 
 def admin_required(f):
@@ -96,12 +97,22 @@ def user(username):
         {'author': user, 'body': 'Test post #1'},
         {'author': user, 'body': 'Test post #2'}
     ]
+   
+    stmt2 = (                              # Количество решенных задач
+    select(func.count(func.distinct(Solve.task_id)))
+    .join(User, Solve.user_id == User.id)
+    .where(User.username == username)      # Только его решения
+    .where(Solve.accept == True)                  # Только принятые
+    )
+    unique_solved_count = db.session.scalar(stmt2)
+    
     
     
     stmt = (
             select(Solve)
             
-            .join(Solve.solver)  # Важно: явно указываем JOIN, чтобы можно было фильтровать по полям пользователя
+            #.join(Solve)  # Важно: явно указываем JOIN, чтобы можно было фильтровать по полям пользователя
+            .join(User, Solve.user_id == User.id)
             .where(User.username == username) # Сравниваем поле username пользователя со строкой
             .order_by(Solve.created_date.desc())
             .options(
@@ -110,10 +121,28 @@ def user(username):
             )
         )
         
+    status_filter = request.args.get('status') 
+    page = request.args.get('page', 1, type=int)
+    if status_filter == 'accepted':
+        stmt = stmt.where(Solve.accept == True)
+    elif status_filter == 'rejected':
+        stmt = stmt.where(Solve.accept == False)
+
+    pagination = db.paginate(stmt,page=page, per_page=10, error_out=False)
+    count_accepted_stmt = select(func.count()).select_from(Solve).join(User, Solve.user_id == User.id).where(Solve.accept == True, User.username == username)
+    count_rejected_stmt = select(func.count()).select_from(Solve).join(User, Solve.user_id == User.id).where(Solve.accept == False, User.username == username)
     
-    solutions = db.session.scalars(stmt).all()
+    total_accepted = db.session.scalar(count_accepted_stmt) 
+    total_rejected = db.session.scalar(count_rejected_stmt)
+    
+    next_url = url_for('user', username=username,page=pagination.next_num) if pagination.has_next else None
+    prev_url = url_for('user', username=username, page=pagination.prev_num) if pagination.has_prev else None
+    
+    return render_template('user.html', user=user, posts=posts, pagination=pagination,is_admin=is_admin, current_status=status_filter,total_accepted=total_accepted, total_rejected=total_rejected,solved_tasks=unique_solved_count,next_url=next_url, prev_url=prev_url)                   
+
+    #solutions = db.session.scalars(stmt).all()
      
-    return render_template('user.html', user=user, posts=posts, solutions=solutions)
+    #return render_template('user.html', user=user, posts=posts, solutions=solutions, solved_tasks=unique_solved_count)
 
 @app.before_request
 def before_request():
@@ -144,7 +173,44 @@ def view_users():
         flash('У вас нет прав для доступа к этой странице', 'danger')
         return redirect(url_for('index'))  # или url_for('login'), куда хочешь редиректить
     users = db.session.scalars(sa.select(User)).all()
-    return render_template('view_users.html', users=users)
+    
+    # 1. Подзапрос: считаем только успешные решения по каждому user_id
+    subq = (
+        select(
+            Solve.user_id,
+            func.count(func.distinct(Solve.task_id)).label('solved_count')
+        )
+        .where(Solve.accept == True)
+        .group_by(Solve.user_id)
+        .subquery()  # Делаем его виртуальной таблицей
+    )
+
+    # 2. Основной запрос: берем всех пользователей и приклеиваем статистику
+    stmt = (
+        select(
+            User.id,
+            User.username,
+            User.email,
+            User.last_seen,
+            User.about_me,
+            # Если статистики нет (новичок), coalesce вернет 0 вместо NULL
+            func.coalesce(subq.c.solved_count, 0).label('solved_count')
+        )
+        .outerjoin(subq, User.id == subq.c.user_id)  # LEFT JOIN
+        # 🔥 ВОТ ЗДЕСЬ БЫЛА ОШИБКА: НЕЛЬЗЯ использовать func.col('name')
+        # ПРАВИЛЬНО: просто передаем строку 'solved_count' или subq.c.solved_count
+        .order_by(subq.c.solved_count.desc(), User.username.asc())
+    )
+
+    results = db.session.execute(stmt).all()
+
+    rating_data = [
+        {'id': r.id, 'username': r.username, 'solved_count': r.solved_count,'email':r.email,'last_seen':r.last_seen,'about_me':r.about_me}
+        for r in results
+    ]
+
+          
+    return render_template('view_users.html', users=users,rating=rating_data)
 
 
 '''
@@ -287,32 +353,23 @@ def view_tasks():
     query = Task.query.options(so.joinedload(Task.topic))
     if selected_topic_id:
          query = query.filter(Task.topic_id == selected_topic_id)
-    tasks = query.all() 
-    
-    '''
-    if not is_admin():
-        flash('У вас нет прав для доступа к этой странице', 'danger')
-        return redirect(url_for('index'))  # или url_for('login'), куда хочешь редиректить
-        '''
-    
-    page = request.args.get('page', 1, type=int)  
-    #subj = request.args.get('subj')
-    #if subj:
-    #    query = Task.query.filter(Task.subject == subj)
-    #else:
-    #    query = Task.query
-  
+   
     query = query.order_by(Task.created_date.desc())
+    page = request.args.get('page', 1, type=int)  
+    
+    
+      
+   
     #per_page = request.args.get('per_page', 10, type=int)
   
     pagination = db.paginate(query,page=page, per_page=10, error_out=False)
-    tasks=pagination.items
+    
     next_url = url_for('view_tasks', page=pagination.next_num) if pagination.has_next else None
     prev_url = url_for('view_tasks', page=pagination.prev_num) if pagination.has_prev else None
     
     form = DeleteForm()
-    return render_template('view_tasks.html', tasks=tasks,form=form,is_admin=is_admin, next_url=next_url,
-                           prev_url=prev_url,pagination=pagination, topics=topics, selected_topic_id=selected_topic_id)
+    return render_template('view_tasks.html', form=form,is_admin=is_admin, next_url=next_url,
+                           prev_url=prev_url,pagination=pagination, topics=topics, selected_topic_id=selected_topic_id, max_per_page=50)
 
 @app.route('/task/<id>', methods=['GET','POST'])
 @login_required
@@ -462,7 +519,42 @@ def solutions():
     solutions = db.session.scalars(stmt).all()
     
     return render_template('solutions.html', solutions=solutions,is_admin=is_admin)
-                   
+
+@app.route('/view_solutions', methods=['GET'])
+@admin_required
+def view_solutions():
+    
+    if not current_user.is_authenticated:
+        return redirect(url_for('index'))
+    
+    status_filter = request.args.get('status') 
+    page = request.args.get('page', 1, type=int)
+    stmt = (
+        sa.select(Solve)
+        .options(
+        selectinload(Solve.solver), # Подгружаем пользователя (поле solver)
+        selectinload(Solve.task) # Подгружаем задачу (поле task)
+
+        )
+        .order_by(Solve.created_date.desc())
+    )
+    
+    if status_filter == 'accepted':
+        stmt = stmt.where(Solve.accept == True)
+    elif status_filter == 'rejected':
+        stmt = stmt.where(Solve.accept == False)
+
+    pagination = db.paginate(stmt,page=page, per_page=10, error_out=False)
+    count_accepted_stmt = select(func.count()).select_from(Solve).where(Solve.accept == True)
+    count_rejected_stmt = select(func.count()).select_from(Solve).where(Solve.accept == False)
+    
+    total_accepted = db.session.scalar(count_accepted_stmt)
+    total_rejected = db.session.scalar(count_rejected_stmt)
+    
+    next_url = url_for('view_solutions', page=pagination.next_num) if pagination.has_next else None
+    prev_url = url_for('view_solutions', page=pagination.prev_num) if pagination.has_prev else None
+    
+    return render_template('view_solutions.html', pagination=pagination,is_admin=is_admin, current_status=status_filter,total_accepted=total_accepted, total_rejected=total_rejected)                   
 
 def is_admin():
     # Проверяем, залогинен ли пользователь вообще
