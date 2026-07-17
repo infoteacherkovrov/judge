@@ -431,8 +431,13 @@ def task(id):
 @app.route('/task/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
 def edit_task(id):
-    edittask = db.first_or_404(sa.select(Task).where(Task.id == id))
+    stmt = sa.select(Task).where(Task.id == id)
+    result = db.session.execute(stmt)
+    edittask = result.scalars().first()
     #пользователь может редактировать только свои задачи
+    if not edittask:
+        abort(404)
+        
     if edittask.user_id != current_user.id:
         abort(403)
     
@@ -441,14 +446,17 @@ def edit_task(id):
     
     if request.method == 'POST' and form.validate_on_submit():
         form.populate_obj(edittask)  # обновляем объект данными из формы
+        
+        # --- ОПЦИОНАЛЬНО: Защита от XSS (если редактируют обычные юзеры) ---
+        # import bleach
+        # allowed_tags = ['p', 'br', 'b', 'i', 'u', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'img']
+        # allowed_attrs = {'img': ['src', 'alt']}
+        # edittask.content = bleach.clean(edittask.content, tags=allowed_tags, attributes=allowed_attrs)
+        # ------------------------------------------------------------------
+
         db.session.commit()
         return redirect(url_for('task', id=edittask.id))
-    '''
-    if form.validate():
-        form.populate_obj(edittask)  # автоматически заполняет объект task данными из формы
-        db.session.commit()
-        return redirect(url_for('task', id=edittask.id))
-    '''
+    
     return render_template('edit_task.html', form=form, id=edittask.id)
 
 @app.route('/task/<int:id>/delete', methods=['POST'])

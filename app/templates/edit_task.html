@@ -1,16 +1,169 @@
 {% extends "base.html" %}
 
-{% block content %}
-    <h1>Edit task</h1>
-    {% from 'bootstrap5/form.html' import render_form %}
-    
-    <div class="row justify-content-center">
-        <div class="col-md-6">
-            <form action="" method="post">
-                {{ form.hidden_tag() }}
-                {{ render_form(form) }}
+{% block styles %}
+    <style>
+        /* 1. Гарантируем, что редактор виден */
+        #summernote {
+            min-height: 300px;
+            border: 1px solid #ced4da;
+            border-radius: 0.25rem;
+            padding: 10px;
+        }
 
-            </form>
-        </div>   
+        /* 2. ГЛАВНОЕ: Делаем кнопки большими и с текстом */
+        .note-btn-group button {
+            /* Убираем всё лишнее, делаем акцент на тексте */
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            
+            /* Размер кнопки */
+            padding: 8px 16px !important;
+            min-width: 60px !important; /* Чтобы текст влезал */
+            
+            /* Шрифт и цвет */
+            font-size: 0.85rem !important;
+            font-weight: 500 !important;
+            color: #333 !important;
+            text-transform: uppercase; /* Текст капсом, как в старых интерфейсах */
+            letter-spacing: 0.5px;
+            
+            /* Стиль фона (в стиле Bootstrap 5) */
+            background-color: #f8f9fa !important;
+            border: 1px solid #dee2e6 !important;
+            border-radius: 0.25rem !important;
+            box-shadow: none !important;
+        }
+
+        /* Цвет при наведении */
+        .note-btn-group button:hover {
+            background-color: #e9ecef !important;
+            color: #000 !important;
+        }
+
+        /* Цвет активной кнопки (когда выбрано) */
+        .note-btn-group button.active {
+            background-color: #0d6efd !important;
+            color: #fff !important;
+            border-color: #0d6efd !important;
+        }
+
+        /* 3. Убираем сломанные иконки внутри кнопок */
+        .note-btn-group button i,
+        .note-btn-group button span.note-icon {
+            display: none !important; 
+        }
+
+        /* 4. Исправляем выпадающие списки (чтобы не были микроскопическими) */
+        .note-drop-menu-wrapper .note-drop-menu {
+            min-width: 240px !important;
+            padding: 8px !important;
+        }
+        
+        .note-drop-menu-wrapper .note-drop-menu button {
+            width: 100%;
+            text-align: left;
+            margin-bottom: 4px;
+            padding: 6px 12px !important;
+            font-size: 0.9rem !important;
+        }
+    </style>
 {% endblock %}
-<p>New User? <a href="{{ url_for('register') }}">Click to Register!</a></p>
+
+{% block content %}
+<h1>Edit task</h1>
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <form action="" method="post" id="task-form">
+            {{ form.hidden_tag() }}
+
+            <!-- Topic -->
+            <div class="mb-3">
+                {{ form.topic.label(class_="form-label") }}
+                {{ form.topic(class_="form-select") }}
+                {% for error in form.topic.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}
+            </div>
+
+            <!-- Title -->
+            <div class="mb-3">
+                {{ form.title.label(class_="form-label") }}
+                {{ form.title(class_="form-control") }}
+                {% for error in form.title.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}
+            </div>
+
+            <!-- Content (Summernote) -->
+            <div class="mb-3">
+                {{ form.content.label(class_="form-label") }}
+                <div id="summernote"></div>
+                <!-- Скрытое поле для WTForms -->
+                {{ form.content(class_="form-control", style="display: none;") }}
+                
+                {% if form.content.errors %}
+                    <div class="text-danger mt-1">
+                        {% for error in form.content.errors %}{{ error }}{% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Answer -->
+            <div class="mb-3">
+                {{ form.answer.label(class_="form-label") }}
+                {{ form.answer(class_="form-control") }}
+                {% for error in form.answer.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}
+            </div>
+
+            {{ form.submit(class_="btn btn-primary") }}
+        </form>
+    </div>  
+</div>
+{% endblock %}
+
+{% block scripts %}
+    <!-- Пути простые: filename='имя_файла.js' -->
+    <script src="{{ url_for('static', filename='jquery-3.6.0.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='summernote-bs4.min.js') }}"></script>
+
+    <script>
+        $(document).ready(function() {
+            console.log('✅ jQuery загружен!');
+
+            // Проверка Summernote
+            if (typeof $.fn.summernote === 'undefined') {
+                console.error('❌ ОШИБКА: Summernote не загружен! Проверь Network.');
+                return;
+            }
+
+            var initialContent = {{ form.content.data | default('') | tojson }};
+
+            $('#summernote').summernote({
+                height: 300,
+                toolbar: [
+                    ['style', ['style']],
+                    ['font', ['bold', 'underline', 'clear']],
+                    ['color', ['color']],
+                    ['para', ['ul', 'ol', 'paragraph']],
+                    ['table', ['table']],
+                    ['insert', ['link', 'picture']],
+                    ['view', ['fullscreen', 'codeview']]
+                ]
+            });
+
+            setTimeout(function() {
+                if (initialContent && initialContent.trim() !== "") {
+                    $('#summernote').summernote('code', initialContent);
+                }
+            }, 100);
+
+            $('#task-form').on('submit', function(e) {
+                var htmlContent = $('#summernote').summernote('code');
+                $('textarea[name="content"]').val(htmlContent);
+            });
+        });
+    </script>
+{% endblock %}
+
+
+
+
+
