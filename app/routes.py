@@ -563,6 +563,9 @@ def view_solutions():
     prev_url = url_for('view_solutions', page=pagination.prev_num) if pagination.has_prev else None
     
     return render_template('view_solutions.html', pagination=pagination,is_admin=is_admin, current_status=status_filter,total_accepted=total_accepted, total_rejected=total_rejected)                   
+@app.route('/summer', methods=['GET', 'POST'])
+def summer():
+    return render_template('summer.html') 
 
 def is_admin():
     # Проверяем, залогинен ли пользователь вообще

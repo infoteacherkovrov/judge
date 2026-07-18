@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 
 {% block styles %}
+    <!--
     <style>
         /* 1. Гарантируем, что редактор виден */
         #summernote {
@@ -68,6 +69,7 @@
             font-size: 0.9rem !important;
         }
     </style>
+-->
 {% endblock %}
 
 {% block content %}
@@ -93,12 +95,19 @@
             </div>
 
             <!-- Content (Summernote) -->
+            
             <div class="mb-3">
+                
                 {{ form.content.label(class_="form-label") }}
-                <div id="summernote"></div>
-                <!-- Скрытое поле для WTForms -->
+                <textarea id="summernote"></textarea>
+                 <!-- Скрытое поле для WTForms -->
+                
+                
+               
                 {{ form.content(class_="form-control", style="display: none;") }}
                 
+                
+
                 {% if form.content.errors %}
                     <div class="text-danger mt-1">
                         {% for error in form.content.errors %}{{ error }}{% endfor %}
@@ -114,15 +123,42 @@
             </div>
 
             {{ form.submit(class_="btn btn-primary") }}
+
+
+
+
+           
+
+
+
+
+            
         </form>
     </div>  
 </div>
 {% endblock %}
 
+
+
 {% block scripts %}
-    <!-- Пути простые: filename='имя_файла.js' -->
+    <!-- Пути простые: filename='имя_файла.js' 
     <script src="{{ url_for('static', filename='jquery-3.6.0.min.js') }}"></script>
-    <script src="{{ url_for('static', filename='summernote-bs4.min.js') }}"></script>
+    
+    <link rel="stylesheet" href="static/bootstrap.min.css" />
+    <script src="{{ url_for('static', filename='bootstrap.bundle.min.js') }}"></script>
+    
+
+    <link href="static/summernote-bs5.min.css" rel="stylesheet">
+    <script src="{{ url_for('static', filename='summernote-bs5.min.js') }}"></script>
+   
+    -->
+    <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js" integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n" crossorigin="anonymous"></script>
+    <link href="https://cdn.jsdelivr.net/npm/summernote@0.9.0/dist/summernote-lite.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/summernote@0.9.0/dist/summernote-lite.min.js"></script>
+
+    
+    
+
 
     <script>
         $(document).ready(function() {
@@ -139,14 +175,21 @@
             $('#summernote').summernote({
                 height: 300,
                 toolbar: [
-                    ['style', ['style']],
-                    ['font', ['bold', 'underline', 'clear']],
-                    ['color', ['color']],
-                    ['para', ['ul', 'ol', 'paragraph']],
-                    ['table', ['table']],
-                    ['insert', ['link', 'picture']],
-                    ['view', ['fullscreen', 'codeview']]
-                ]
+                        ['style', ['style']],
+                        ['fontsize', ['fontsize']],
+                        ['font', ['bold', 'italic', 'underline', 'strikethrough', 'superscript',
+                            'subscript', 'clear'
+                        ]],
+                        ['color', ['color']],
+                        ['para', ['ul', 'ol', 'paragraph']],
+                        ['table', ['table']],
+                        ['height', ['height']],
+                        ['insert', ['link', 'picture', 'video']],
+                        ['view', ['fullscreen', 'codeview']],
+                        ['fontname', ['fontname']],
+                        ['misc', ['help']],
+                    ],
+
             });
 
             setTimeout(function() {

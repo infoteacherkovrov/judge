@@ -1,0 +1,19 @@
+{% block content %}
+<div id="summernote">Hello Summernote</div>
+{% endblock %}
+
+{% block scripts %}
+    <!-- Пути простые: filename='имя_файла.js' -->
+    <script src="{{ url_for('static', filename='jquery-3.6.0.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='summernote-bs4.min.js') }}"></script>
+    
+    
+
+
+    <script>
+        $(document).ready(function() {
+         $('#summernote').summernote();
+        });
+    </script>
+{% endblock %}
+
