@@ -22,7 +22,7 @@ from werkzeug.utils import secure_filename
 import os
 import uuid
 
-UPLOAD_FOLDER = 'app/static/uploads/'
+UPLOAD_FOLDER = 'app/static/images/'
 ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'gif'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # опционально: лимит 16 МБ
@@ -51,11 +51,11 @@ def summernote_upload():
         filename = secure_filename(file.filename)
         unique_filename = f"{uuid.uuid4().hex}_{filename}"
         
-        upload_folder = os.path.join(app.root_path, 'static', 'uploads')
+        upload_folder = os.path.join(app.root_path, 'static', 'images')
         os.makedirs(upload_folder, exist_ok=True)
         
         file.save(os.path.join(upload_folder, unique_filename))
-        image_url = f'/static/uploads/{unique_filename}'
+        image_url = f'/static/images/{unique_filename}'
         
         print(f"✅ УСПЕХ: {image_url}")
         return jsonify({'url': image_url})

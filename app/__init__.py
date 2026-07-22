@@ -15,7 +15,13 @@ import os
 
 
 
-app = Flask(__name__)
+#app = Flask(__name__)
+
+# Получаем абсолютный путь к текущей папке (где лежит app.py)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Явно говорим Flask: "Статика лежит в папке static, которая лежит РЯДОМ с этим файлом"
+app = Flask(__name__, static_folder=os.path.join(BASE_DIR, 'static'))
 
 
 csrf = CSRFProtect()
