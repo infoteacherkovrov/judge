@@ -8,12 +8,20 @@ from flask_login import LoginManager
 from logging.handlers import RotatingFileHandler
 from flask_bootstrap import Bootstrap5
 from flask_wtf.csrf import CSRFProtect
+from werkzeug.utils import secure_filename
+
 
 import os
 
+
+
 app = Flask(__name__)
+
+
 csrf = CSRFProtect()
 csrf.init_app(app)
+
+
 bootstrap = Bootstrap5(app)
 app.config.from_object(Config)
 db = SQLAlchemy(app)

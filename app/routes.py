@@ -1,14 +1,14 @@
 from flask import render_template, flash, redirect, url_for, abort
 from app import app,db
-from app.forms import LoginForm, RegistrationForm, AdminRoleForm, CreateTask, EditTask, DeleteForm, SubmitForm, CreateTopic
+from app.forms import LoginForm, RegistrationForm, AdminRoleForm, CreateTask, EditTask, DeleteForm, SubmitForm, CreateTopic, UploadImageForm
 from flask_login import current_user, login_user,logout_user
 import sqlalchemy as sa
 import sqlalchemy.orm as so
 from app.models import User, Role, Task, Solve, Topic
 from flask_login import login_required
-from flask import request
+from flask import request,jsonify
 from urllib.parse import urlsplit
-from datetime import datetime, timezone
+from datetime import datetime, timezone,timedelta 
 from app.forms import EditProfileForm
 
 from flask_login import login_required
@@ -18,8 +18,52 @@ from functools import wraps
 
 from sqlalchemy.orm import selectinload
 from sqlalchemy import func, select
+from werkzeug.utils import secure_filename
+import os
+import uuid
+
+UPLOAD_FOLDER = 'app/static/uploads/'
+ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'gif'}
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # опционально: лимит 16 МБ
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
+
+
+          
+@app.route('/summernote_upload', methods=['POST'])
+def summernote_upload():
+    print("🚀 Загрузка началась (CSRF временно отключен)")
+    
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part'}), 400
+
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
+
+    try:
+        filename = secure_filename(file.filename)
+        unique_filename = f"{uuid.uuid4().hex}_{filename}"
+        
+        upload_folder = os.path.join(app.root_path, 'static', 'uploads')
+        os.makedirs(upload_folder, exist_ok=True)
+        
+        file.save(os.path.join(upload_folder, unique_filename))
+        image_url = f'/static/uploads/{unique_filename}'
+        
+        print(f"✅ УСПЕХ: {image_url}")
+        return jsonify({'url': image_url})
+    except Exception as e:
+        print(f"❌ Ошибка: {e}")
+        return jsonify({'error': str(e)}), 500
+    
+    
 def admin_required(f):
     @wraps(f)
     @login_required
@@ -92,58 +136,242 @@ def register():
 @app.route('/user/<username>')
 @login_required
 def user(username):
-    user = db.first_or_404(sa.select(User).where(User.username == username))
-    posts = [
-        {'author': user, 'body': 'Test post #1'},
-        {'author': user, 'body': 'Test post #2'}
-    ]
-   
-    stmt2 = (                              # Количество решенных задач
-    select(func.count(func.distinct(Solve.task_id)))
-    .join(User, Solve.user_id == User.id)
-    .where(User.username == username)      # Только его решения
-    .where(Solve.accept == True)                  # Только принятые
+    # 1. Находим пользователя
+    stmt_user = select(User).where(User.username == username)
+    user = db.first_or_404(stmt_user)
+
+    # --- Твоя старая логика (Уникальные задачи) ---
+    stmt2 = (
+        select(func.count(func.distinct(Solve.task_id)))
+        .join(User, Solve.user_id == User.id)
+        .where(User.username == username)
+        .where(Solve.accept == True)
     )
-    unique_solved_count = db.session.scalar(stmt2)
-    
-    
-    
+    unique_solved_count = db.session.scalar(stmt2) or 0
+
+    # --- Твоя старая логика (Пагинация решений) ---
     stmt = (
-            select(Solve)
-            
-            #.join(Solve)  # Важно: явно указываем JOIN, чтобы можно было фильтровать по полям пользователя
-            .join(User, Solve.user_id == User.id)
-            .where(User.username == username) # Сравниваем поле username пользователя со строкой
-            .order_by(Solve.created_date.desc())
-            .options(
-                selectinload(Solve.solver),  # Подгружаем пользователя (поле solver)
-                selectinload(Solve.task)    # Подгружаем задачу (на всякий случай)
-            )
+        select(Solve)
+        .join(User, Solve.user_id == User.id)
+        .where(User.username == username)
+        .order_by(Solve.created_date.desc())
+        .options(
+            selectinload(Solve.solver),
+            selectinload(Solve.task)
         )
-        
-    status_filter = request.args.get('status') 
+    )
+
+    status_filter = request.args.get('status')
     page = request.args.get('page', 1, type=int)
+
     if status_filter == 'accepted':
         stmt = stmt.where(Solve.accept == True)
     elif status_filter == 'rejected':
         stmt = stmt.where(Solve.accept == False)
 
-    pagination = db.paginate(stmt,page=page, per_page=10, error_out=False)
-    count_accepted_stmt = select(func.count()).select_from(Solve).join(User, Solve.user_id == User.id).where(Solve.accept == True, User.username == username)
-    count_rejected_stmt = select(func.count()).select_from(Solve).join(User, Solve.user_id == User.id).where(Solve.accept == False, User.username == username)
-    
-    total_accepted = db.session.scalar(count_accepted_stmt) 
-    total_rejected = db.session.scalar(count_rejected_stmt)
-    
-    next_url = url_for('user', username=username,page=pagination.next_num) if pagination.has_next else None
+    pagination = db.paginate(stmt, page=page, per_page=10, error_out=False)
+
+    count_accepted_stmt = (
+        select(func.count()).select_from(Solve).join(User, Solve.user_id == User.id)
+        .where(Solve.accept == True, User.username == username)
+    )
+    count_rejected_stmt = (
+        select(func.count()).select_from(Solve).join(User, Solve.user_id == User.id)
+        .where(Solve.accept == False, User.username == username)
+    )
+
+    total_accepted = db.session.scalar(count_accepted_stmt) or 0
+    total_rejected = db.session.scalar(count_rejected_stmt) or 0
+
+    next_url = url_for('user', username=username, page=pagination.next_num) if pagination.has_next else None
     prev_url = url_for('user', username=username, page=pagination.prev_num) if pagination.has_prev else None
     
-    return render_template('user.html', user=user, posts=posts, pagination=pagination,is_admin=is_admin, current_status=status_filter,total_accepted=total_accepted, total_rejected=total_rejected,solved_tasks=unique_solved_count,next_url=next_url, prev_url=prev_url)                   
+    is_admin = getattr(current_user, 'is_admin', False)
+    
+    # Заглушка для постов, если их нет в цикле (чтобы шаблон не упал)
+    posts = [] 
+    # Если у тебя где-то выше в старом коде была логика загрузки posts - оставь её. 
+    # Если нет - эта заглушка защитит от ошибки в шаблоне.
 
-    #solutions = db.session.scalars(stmt).all()
-     
-    #return render_template('user.html', user=user, posts=posts, solutions=solutions, solved_tasks=unique_solved_count)
+    # --- НОВАЯ ЛОГИКА: Статистика для графика ---
+    period = request.args.get('period', 'all')
+    end_date = datetime.now(timezone.utc)
+    start_date = None
 
+    if period == 'week':
+        start_date = end_date - timedelta(days=7)
+    elif period == 'month':
+        start_date = end_date - timedelta(days=30)
+
+    query = db.session.query(Solve).filter(Solve.user_id == user.id)
+    if start_date:
+        query = query.filter(Solve.created_date >= start_date)
+
+    all_solves = query.all()
+
+    chart_overall = {
+        "total_attempts": 0,
+        "total_correct": 0,
+        "unique_solved": 0,
+        "success_rate_percent": 0.0,
+        "mastery_rate_percent": 0.0
+    }
+    chart_daily = []
+
+    if not all_solves:
+        pass
+    else:
+        total_attempts = len(all_solves)
+        total_accepted = sum(1 for s in all_solves if s.accept)
+        
+        # Уникальные задачи, которые были РЕШЕНЫ
+        unique_solved_tasks = len({s.task_id for s in all_solves if s.accept})
+        
+        # Все уникальные задачи, к которым пользователь прикасался (и верно, и неверно)
+        touched_tasks = len({s.task_id for s in all_solves})
+        
+        # 1. Точность: сколько попыток были успешными
+        success_rate = round(100.0 * total_accepted / total_attempts, 1) if total_attempts > 0 else 0.0
+        
+        # 2. Освоение: сколько уникальных задач закрыто из тех, что пробовал
+        mastery_rate = round(100.0 * unique_solved_tasks / touched_tasks, 1) if touched_tasks > 0 else 0.0
+
+        chart_overall = {
+            "total_attempts": total_attempts,
+            "total_correct": total_accepted,
+            "unique_solved": unique_solved_tasks,
+            "success_rate_percent": success_rate,
+            "mastery_rate_percent": mastery_rate
+        }
+
+        # Группировка по дням для графика
+        daily_stats = {}
+        for solve in all_solves:
+            day_key = solve.created_date.date()
+            
+            if day_key not in daily_stats:
+                daily_stats[day_key] = {
+                    "unique_correct_ids": set(),   # ID решённых задач
+                    "wrong_attempts": 0             # Количество ошибок
+                }
+            
+            if solve.accept:
+                daily_stats[day_key]["unique_correct_ids"].add(solve.task_id)
+            else:
+                daily_stats[day_key]["wrong_attempts"] += 1
+
+        sorted_days = sorted(daily_stats.items(), key=lambda x: x[0])
+
+        chart_daily = [
+            {
+                "day": day.isoformat(),
+                "unique_solved": len(data["unique_correct_ids"]),
+                "wrong_attempts": data["wrong_attempts"]
+            }
+            for day, data in sorted_days
+        ]
+
+    # Передаем в шаблон не только данные, но и текущий выбранный период
+    return render_template(
+        'user.html',
+        user=user,
+        posts=posts,
+        pagination=pagination,
+        is_admin=is_admin,
+        current_status=status_filter,
+        total_accepted=total_accepted,
+        total_rejected=total_rejected,
+        solved_tasks=unique_solved_count,
+        next_url=next_url,
+        prev_url=prev_url,
+        chart_daily=chart_daily,
+        chart_overall=chart_overall,
+        current_period=period
+    )
+
+
+# ==========================================
+# 2. НОВЫЙ РОУТ (API для графика)
+# Возвращает JSON данные для Chart.js
+# ==========================================
+@app.route('/api/user/stats', methods=['GET'])
+@login_required  # Защита API тоже нужна!
+def user_stats():
+    user_id = request.args.get('user_id', type=int)
+    days = request.args.get('days', default=30, type=int)
+
+    if not user_id:
+        return jsonify({"error": "user_id required"}), 400
+
+    # Проверка прав: можно смотреть статистику только своего профиля или админу
+    try:
+        if current_user.id != user_id and not getattr(current_user, 'is_admin', False):
+            return jsonify({"error": "Forbidden"}), 403
+    except AttributeError:
+        pass  # На случай тестов без логина
+
+    end_date = datetime.now(timezone.utc)
+    start_date = end_date - timedelta(days=days)
+
+    with db.session.begin():
+        # --- Общая статистика ---
+        overall_row = (
+            db.session.query(
+                func.count(Solve.id).label("total_attempts"),
+                func.sum(sa.cast(Solve.accept, db.Integer)).label("total_correct"),
+            )
+            .filter(Solve.user_id == user_id)
+            .filter(Solve.created_date.between(start_date, end_date))
+            .one_or_none()
+        )
+
+        if not overall_row:
+            overall = {"total_attempts": 0, "total_correct": 0, "success_rate_percent": 0.0}
+        else:
+            total_attempts = overall_row.total_attempts or 0
+            total_correct = overall_row.total_correct or 0
+            success_rate = (
+                round(100.0 * total_correct / total_attempts, 1)
+                if total_attempts > 0 else 0.0
+            )
+            overall = {
+                "total_attempts": total_attempts,
+                "total_correct": total_correct,
+                "success_rate_percent": success_rate,
+            }
+
+        # --- Ежедневная статистика (для графика) ---
+        rows = (
+            db.session.query(
+                func.date(Solve.created_date).label("day"),
+                func.count(Solve.id).label("total_solved"),
+                func.sum(sa.cast(Solve.accept, db.Integer)).label("correct_solved"),
+            )
+            .filter(Solve.user_id == user_id)
+            .filter(Solve.created_date.between(start_date, end_date))
+            .group_by(func.date(Solve.created_date))
+            .order_by(func.date(Solve.created_date))
+            .all()
+        )
+
+        daily = [
+            {
+                "day": row.day.isoformat(),
+                "total_solved": row.total_solved or 0,
+                "correct_solved": row.correct_solved or 0,
+            }
+            for row in rows
+        ]
+
+    return jsonify({
+        "daily": daily,
+        "overall": overall,
+        "period": {
+            "start": start_date.isoformat(),
+            "end": end_date.isoformat(),
+        },
+    })
+    
 @app.before_request
 def before_request():
     if current_user.is_authenticated:
@@ -563,6 +791,25 @@ def view_solutions():
     prev_url = url_for('view_solutions', page=pagination.prev_num) if pagination.has_prev else None
     
     return render_template('view_solutions.html', pagination=pagination,is_admin=is_admin, current_status=status_filter,total_accepted=total_accepted, total_rejected=total_rejected)                   
+
+
+@app.route('/upload', methods=['GET', 'POST'])
+@admin_required
+def upload():
+    form = UploadImageForm()
+    if form.validate_on_submit():
+        file = form.image.data
+        
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            save_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(save_path)
+            return 'Image uploaded successfully'
+        else:
+            return 'Invalid file type', 400
+    
+    return render_template('upload.html', form=form)
+
 @app.route('/summer', methods=['GET', 'POST'])
 def summer():
     return render_template('summer.html') 

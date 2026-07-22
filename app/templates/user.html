@@ -9,24 +9,205 @@
                 {% if user.about_me %}<p>{{ user.about_me }}</p>{% endif %}
                 {% if user.last_seen %}<p>Last seen on: {{ user.last_seen.strftime('%Y-%m-%d %H:%M') }}</p>{% endif %}
             </td>
-            
         </tr>
-        
     </table>
 
-    
     {% if user == current_user %}
-                <p><a href="{{ url_for('edit_profile') }}">Edit your profile</a></p>
-                {% endif %}
+        <p><a href="{{ url_for('edit_profile') }}">Edit your profile</a></p>
+    {% endif %}
+
     <hr>
+
+    <!-- Блок графика 
+    <div style="margin-bottom: 20px; border: 1px solid #eee; padding: 15px;">
+        <h2>Solved tasks: {{ solved_tasks }}</h2>
+        
+        {% if chart_overall %}
+            <p style="color: #555; font-size: 0.9em;">
+                Total attempts: {{ chart_overall.total_attempts }} | 
+                Correct: {{ chart_overall.total_correct }} | 
+                Success rate: {{ chart_overall.success_rate_percent }}%
+            </p>
+        {% endif %}
+
+        <canvas id="myChart" height="200"></canvas>
+        
+         Сюда выведется ошибка, если данных нет 
+        <div id="chart-error" style="color: red; display: none; margin-top: 10px;"></div>
+    </div>
+    -->
+
     {% for post in posts %}
         {% include '_post.html' %}
     {% endfor %}
-    <div>
-    <h2>Solved tasks: {{solved_tasks}}</h2>
-    </div>
-
 
     {% include "view_user_solutions.html" %}
 
+    <!-- Кнопки переключения -->
+    <div style="margin-bottom: 15px; text-align: right;">
+        <a href="{{ url_for('user', username=user.username, period='week') }}" 
+        class="btn {% if current_period == 'week' %}btn-primary{% else %}btn-outline-secondary{% endif %}" 
+        style="padding: 5px 12px; font-size: 0.9em; text-decoration: none; border-radius: 4px; border: 1px solid #ccc;">Неделя</a>
+        
+        <a href="{{ url_for('user', username=user.username, period='month') }}" 
+        class="btn {% if current_period == 'month' %}btn-primary{% else %}btn-outline-secondary{% endif %}" 
+        style="padding: 5px 12px; font-size: 0.9em; text-decoration: none; border-radius: 4px; border: 1px solid #ccc;">Месяц</a>
+        
+        <a href="{{ url_for('user', username=user.username, period='all') }}" 
+        class="btn {% if current_period == 'all' %}btn-primary{% else %}btn-outline-secondary{% endif %}" 
+        style="padding: 5px 12px; font-size: 0.9em; text-decoration: none; border-radius: 4px; border: 1px solid #ccc;">Всё время</a>
+    </div>
+
+    <!-- Блок графика -->
+    <!-- Блок графика -->
+<div style="max-width: 1200px; margin: 0 auto 30px auto; padding: 25px; border: 1px solid #e0e0e0; border-radius: 8px; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+    
+    <h3 style="margin-top: 0; color: #333;">Прогресс по дням ({{ current_period | replace('week', 'за неделю') | replace('month', 'за месяц') | replace('all', 'за всё время') }})</h3>
+    
+    {% if chart_overall %}
+        <div style="color: #555; font-size: 0.95em; margin-bottom: 20px; line-height: 1.5;">
+            <div style="margin-bottom: 8px;">
+                Всего попыток: {{ chart_overall.total_attempts }} | 
+                Успешных исходов: {{ chart_overall.total_correct }} | 
+                Уникальных задач решено: {{ chart_overall.unique_solved }}
+            </div>
+            
+            <div style="margin-bottom: 10px;">
+                <span style="font-weight: bold; color: #2ecc71;">Точность:</span> {{ chart_overall.success_rate_percent }}% | 
+                <span style="font-weight: bold; color: #3498db;">Освоение:</span> {{ chart_overall.mastery_rate_percent }}%
+            </div>
+
+            <ul style="margin: 0; padding-left: 20px; font-size: 0.85em; color: #777;">
+                <li><strong>Точность:</strong> отношение количества принятых (верных) попыток к их общему количеству.</li>
+                <li><strong>Освоение:</strong> отношение количества уникальных решённых задач ко всем задачам, по которым были попытки решения.</li>
+            </ul>
+        </div>
+    {% endif %}
+
+    <!-- ВАЖНО: Вернули фиксированную высоту. Теперь график не сможет уйти в бесконечность -->
+    <canvas id="myChart"></canvas>
+</div>
+
+<!-- 1. Подключаем библиотеку Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- 2. Передаем данные из Flask в JS переменную -->
+<script>
+    window.chartData = {{ chart_daily | tojson }};
+</script>
+
+<!-- 3. Подключаем наш отдельный скрипт -->
+<script src="{{ url_for('static', filename='chart.js') }}"></script>
+
+<!--
+<div style="max-height: 400px; margin: 0 auto 30px auto; padding: 15px; border: 1px solid #eee; border-radius: 8px; background: #fafafa;">
+    <h3 style="margin-top: 0;">Динамика решений ({{ current_period | replace('week', 'за неделю') | replace('month', 'за месяц') | replace('all', 'за всё время') }})</h3>
+    
+    {% if chart_overall %}
+        <p style="color: #555; font-size: 0.95em; margin-bottom: 15px;">
+            Всего попыток: {{ chart_overall.total_attempts }} | 
+            Верно: {{ chart_overall.total_correct }} | 
+            Успешность: {{ chart_overall.success_rate_percent }}%
+        </p>
+    {% endif %}
+
+    <canvas id="myChart" height="300"></canvas>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const ctx = document.getElementById('myChart').getContext('2d');
+        // Берем данные из шаблона
+        const initialData = {{ chart_daily | tojson }};
+        let currentChart = null;
+
+        function renderChart(data) {
+            if (currentChart) {
+                currentChart.destroy(); // Уничтожаем старый график
+            }
+
+            if (!data || data.length === 0) {
+                document.getElementById('myChart').parentElement.innerHTML += 
+                    '<p style="color: #888; text-align: center;">Нет данных за выбранный период</p>';
+                return;
+            }
+
+            const labels = data.map(item => item.day);
+            const correctData = data.map(item => item.correct_solved);
+            const totalData = data.map(item => item.total_solved);
+            
+            // 🔥 ВОТ ОНА, НОВАЯ МАГИЯ: считаем ошибки на лету
+            const wrongData = data.map(item => item.total_solved - item.correct_solved);
+
+            currentChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Всего решений',
+                            data: totalData,
+                            borderColor: '#367ae1',
+                            backgroundColor: 'rgba(54, 162, 235, 0.3)',
+                            tension: 0.4,
+                            fill: false,
+                            order: 3 // Сзади всех
+                        },
+                        {
+                            label: 'Верных решений',
+                            data: correctData,
+                            borderColor: '#74c04b',
+                            backgroundColor: 'rgba(83, 190, 30, 0.2)',
+                            tension: 0.4,
+                            fill: true,
+                            order: 2 // Посередине
+                        },
+                        {
+                            // 🔥 НОВАЯ ЛИНИЯ: ОШИБКИ
+                            label: 'Ошибок',
+                            data: wrongData,
+                            borderColor: '#c11010',       // Ярко-красный цвет
+                            backgroundColor: 'rgba(255, 107, 107, 0.2)',
+                            tension: 0.4,
+                            fill: true,                    // Не заливаем, чтобы не было каши
+                            borderDash: [5, 5],            // Пунктирная линия — сразу видно, что это "плохое"
+                            order: 1                        // Спереди, чтобы бросалось в глаза
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { 
+                            title: { display: true, text: 'Дата' },
+                            ticks: { maxRotation: 45, minRotation: 45 }
+                        },
+                        y: { 
+                            title: { display: true, text: 'Количество' }, 
+                            beginAtZero: true,
+                            stepSize: 1 
+                        }
+                    },
+                    plugins: { 
+                        legend: { position: 'top' },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': ' + context.parsed.y;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        renderChart(initialData);
+    });
+</script>
+-->
+
 {% endblock %}
+

@@ -8,6 +8,17 @@ from wtforms import TextAreaField
 from wtforms.validators import Length
 from wtforms import HiddenField
 from wtforms_alchemy.fields import QuerySelectField 
+from flask_wtf.file import FileField, FileAllowed, FileRequired
+
+
+class UploadImageForm(FlaskForm):
+    image = FileField(
+        'Image',
+        validators=[
+            FileRequired(),  # Проверяет, что файл был выбран
+            FileAllowed(['jpg', 'jpeg', 'png','gif','pdf'], 'Only image files are allowed.')
+        ]
+    )
 
 class LoginForm(FlaskForm):
     username = StringField('Username', validators=[DataRequired()])
@@ -66,7 +77,7 @@ class CreateTask(FlaskForm):
         blank_text='-- Выберите тему --'
         )
     title = StringField('Title', validators=[DataRequired()])
-    content = TextAreaField('Content', validators=[Length(min=0, max=1400)])
+    content = TextAreaField('Content', validators=[Length(min=0, max=10000)])
     answer = StringField('Answer', validators=[DataRequired()])
     submit = SubmitField('Create task')
     
@@ -80,7 +91,7 @@ class EditTask(FlaskForm):
         blank_text='-- Выберите тему --'
         )
     title = StringField('Title', validators=[DataRequired()])
-    content = TextAreaField('Content', validators=[Length(min=0, max=1400)])
+    content = TextAreaField('Content', validators=[Length(min=0, max=10000)])
     answer = StringField('Answer', validators=[DataRequired()])
     submit = SubmitField('Edit task')
     

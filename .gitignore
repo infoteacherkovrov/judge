@@ -1,18 +1,4 @@
-# Виртуальное окружение (НИКОГДА не грузи его в git!)
-venv/
-.env
-
-# Файлы базы данных (SQLite)
-*.db
-app.db
-instance/*.db
-
-# Питонские кэши и метаданные
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
+# Сборка Python
 build/
 develop-eggs/
 dist/
@@ -37,11 +23,28 @@ wheels/
 .DS_Store
 Thumbs.db
 
-# IDE файлы (VS Code, PyCharm)
+# IDE файлы
 .vscode/
 .idea/
 *.iml
 
-#Миграции
-migrations/versions/*.py
-!migrations/versions/__init__.py
+# --- ВАЖНО ДЛЯ FLASK ---
+
+# Байт-код Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Базы данных и бэкапы
+*.db
+*.db.backup*
+*.sqlite
+*.sqlite3
+*.sql
+
+# Локальные настройки (если .flaskenv тоже хочешь игнорировать, но обычно его КОММИТЯТ)
+# .flaskenv  <-- НЕ добавляй эту строку, если хочешь хранить настройки в Git!
+
+# Логи и сертификаты
+logs/
+certs/
