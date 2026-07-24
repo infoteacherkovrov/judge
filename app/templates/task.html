@@ -2,20 +2,30 @@
 
 {% block content %}
 
-                <p align= right>Задача {{ task.id }}<br>
-                    Рейтинг: {{task.rating}}<br>
-                    {% if task.topic %}
-                     Тема: <strong>{{ task.topic.topic }}</strong>
-                {% else %}
-                     ⚠️ Тема не назначена
-                {% endif %} 
-                </p>
-                <h1 align=center>{{task.title}}</h1>
-                
-                
-                <p>{{task.content|safe}}</p>
-                
-                {% if is_admin()%}<p> Ответ: <strong>{{task.answer}}</strong>{% endif %}
+    <p align= right>Задача {{ task.id }}<br>
+        Рейтинг: {{task.rating}}<br>
+        {% if task.topic %}
+            Тема: <strong>{{ task.topic.topic }}</strong>
+    {% else %}
+            ⚠️ Тема не назначена
+    {% endif %} 
+    </p>
+    <div class="mt-4 mb-4 p-3 bg-light border rounded">
+        <h1 align=center>{{task.title}}</h1>
+        <p>{{task.content|safe}}</p>
+    </div>
+    {% if is_admin()%}
+        <div class="alert alert-info">
+        <strong>Эталонный ответ:</strong>
+        {% if task.task_type.name == 'code' %}
+            <div class="code-block">
+                <pre><code class="language-python">{{ task.answer }}</code></pre>
+            </div>
+        {% else %}
+            <p>{{ task.answer }}</p>
+        {% endif %}
+        </div>
+    {% endif %}
                 
                
                 
@@ -23,14 +33,73 @@
 
 {% from 'bootstrap5/form.html' import render_form %}
 
-    <div class="row justify-content-left">
+    <!-- ... предыдущий код (условие, эталонный ответ) ... -->
+
+    <!-- Форма отправки решения -->
+    <div class="row justify-content-left mt-5">
         <div class="col-md-6">
             <form action="" method="post">
                 {{ form.hidden_tag() }}
-                {{ render_form(form) }}
+                <!-- === БЛОК ВЫБОРА ЯЗЫКА (ТОЛЬКО ДЛЯ ЗАДАЧ НА КОД) === -->
+                {% if task.task_type.name == 'code' %}
+                    <div class="mb-3">
+                        {{ form.language.label(class_="form-label") }}
+                        {{ form.language(class_="form-select") }}
+                        
+                        {% for error in form.language.errors %}
+                            <div class="text-danger small">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="alert alert-info border-0" style="background-color: #e9ecef;">
+                        <small>
+                            Выбранный язык используется для подсветки синтаксиса и проверки решения.
+                        </small>
+                    </div>
+                {% endif %}
+                <!-- ======================================================= -->
+                 
+                <!-- === ПОЛЕ ОТВЕТА (УМНОЕ) === -->
+                <div class="mb-3">
+                    {{ form.answer.label(class_="form-label") }}
+                    
+                    {% if task.task_type.name == 'code' %}
+                        <!-- ЗАДАЧА НА КОД: высокое поле, моноширинный шрифт, серый фон -->
+                        {{ form.answer(
+                            class_="form-control code-input", 
+                            rows=15, 
+                            style="font-family: monospace; resize: vertical;"
+                        ) }}
+                        <div class="form-text text-muted">
+                            Это задача на написание кода. Используйте отступы и переносы строк.
+                        </div>
+                    {% else %}
+                        <!-- ТЕКСТОВАЯ ЗАДАЧА: низкое поле, обычный шрифт -->
+                        {{ form.answer(
+                            class_="form-control", 
+                            rows=2, 
+                            style="resize: none;"
+                        ) }}
+                        <div class="form-text text-muted">
+                            Введите краткий текстовый ответ (1-2 строки).
+                        </div>
+                    {% endif %}
+
+                    <!-- Вывод ошибок валидации для этого поля -->
+                    {% for error in form.answer.errors %}
+                        <div class="text-danger small">{{ error }}</div>
+                    {% endfor %}
+                </div>
+                <!-- =========================== -->
+
+                <!-- Кнопка отправки -->
+                {{ form.submit(class_="btn btn-primary") }}
             </form>
         </div> 
     </div>
+
+<!-- ... таблица решений (оставь как была) ... -->
+
 
 <br><br>
 {% if solution %}

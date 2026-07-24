@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+
+<h2>Судья: Проверка кода</h2>
+
+    <!-- Магия здесь: form.hidden_tag() автоматически добавит CSRF-токен -->
+    <form method="POST">
+        {{ form.hidden_tag() }} 
+        
+        <div style="margin-bottom: 15px;">
+            {{ form.language.label }} 
+            {{ form.language(class="form-select") }} <!-- Если есть Bootstrap, класс form-select сработает -->
+        </div>
+
+        <div style="margin-bottom: 15px; height: 250px";>
+            {{ form.code.label }}
+            {{ form.code(class="form-control") }}
+        </div>
+ 
+        {{ form.submit(class="btn btn-primary") }}
+    </form>
+
+    {% if results %}
+        <h3>Результаты прогонов:</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Тест</th>
+                    <th>Вход</th>
+                    <th>Ожидалось</th>
+                    <th>Получено</th>
+                    <th>Статус</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for res in results %}
+                <tr>
+                    <td>{{ res.test }}</td>
+                    <td><pre>{{ res.input }}</pre></td>
+                    <td><pre>{{ res.expected }}</pre></td>
+                    <td>
+                        {% if res.error %}
+                            <span class="error">{{ res.error }}</span>
+                        {% else %}
+                            <pre>{{ res.got }}</pre>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if res.status == 'OK' %}
+                            <span class="ok">✅ PASS</span>
+                        {% elif res.status == 'FAIL' %}
+                            <span class="fail">❌ WA</span>
+                        {% else %}
+                            <span class="error">⚠️ ERROR</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+
+
+{% endblock %}

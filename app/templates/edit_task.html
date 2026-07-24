@@ -79,6 +79,15 @@
     <div class="col-md-8">
         <form action="" method="post" id="task-form">
             {{ form.hidden_tag() }}
+            <!--Type-->
+            <div class="form-group mb-3">
+                <label for="type_id">{{ form.type_id.label.text }}</label>
+                {{ form.type_id(class_="form-control") }}
+                {% for error in form.type_id.errors %}
+                    <div class="text-danger">{{ error }}</div>
+                {% endfor %}
+            </div>
+
 
             <!-- Topic -->
             <div class="mb-3">

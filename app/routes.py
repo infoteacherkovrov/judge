@@ -1,6 +1,6 @@
 from flask import render_template, flash, redirect, url_for, abort
 from app import app,db
-from app.forms import LoginForm, RegistrationForm, AdminRoleForm, CreateTask, EditTask, DeleteForm, SubmitForm, CreateTopic, UploadImageForm
+from app.forms import CodeForm, LoginForm, RegistrationForm, AdminRoleForm, CreateTask, EditTask, DeleteForm, SolutionForm, CreateTopic, UploadImageForm
 from flask_login import current_user, login_user,logout_user
 import sqlalchemy as sa
 import sqlalchemy.orm as so
@@ -21,6 +21,9 @@ from sqlalchemy import func, select
 from werkzeug.utils import secure_filename
 import os
 import uuid
+from flask import render_template
+import requests
+
 
 UPLOAD_FOLDER = 'app/static/images/'
 ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'gif'}
@@ -28,12 +31,89 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # опционально: лимит 16 МБ
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
+
+
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
+# Эталонные ответы
+TEST_CASES = {
+    "2 3": "5",
+    "10 20": "30",
+    "15 -20": "-5"
+}
 
+@app.route('/check', methods=['GET', 'POST'])
+def check():
+    form = CodeForm()
+    results = []
+    COMPILER_MAP = {
+        'python3': 'python-3.14',
+        'cpp': 'g++-15',          # Скорее всего так, но надо проверить
+        'java': 'jdk-17'             # Скорее всего так
+    }
+
+    if form.validate_on_submit():
+        # 1. БЕРЁМ КОД ОТ ПОЛЬЗОВАТЕЛЯ
+        # form.code — это поле из твоей формы (TextAreaField)
+        # .data — это именно текст, который там написан
+        user_code = form.code.data 
+        
+        lang = form.language.data
+        num=0
+        for test_name, expected_output in TEST_CASES.items():
+            num+=1
+            # 2. ГЕНЕРИРУЕМ ВХОДНЫЕ ДАННЫЕ ДЛЯ ЭТОГО ТЕСТА
+            # Например, из "test_1_2_3" делаем "1 2 3"
+            input_data = test_name
+            
+            # --- ЗДЕСЬ НАЧИНАЕТСЯ РЕАЛЬНЫЙ ЗАПРОС К API ---
+           
+            
+            api_url = "https://api.onlinecompiler.io/api/run-code-sync/"
+            compiler_name = COMPILER_MAP.get(form.language.data, 'python-3.14')
+
+            payload = {
+                "compiler": compiler_name,  # Фиксированный компилятор
+                "code": user_code,         # <-- ВОТ ОТКУДА БЕРЁТСЯ CODE
+                "input": input_data        # <-- ВОТ ОТКУДА БЕРЁТСЯ INPUT
+            }
+              
+            headers = {
+                "Authorization": f"{app.config['API_KEY']}",
+                "Content-Type": "application/json"
+            }
+            
+            try:
+                response = requests.post(api_url, json=payload, headers=headers)
+                
+                if response.status_code == 200:
+                    data = response.json()
+                else:
+                    # Если API вернул ошибку (401, 429 и т.д.)
+                    data = {"status": "error", "output": "", "error": f"API Error: {response.status_code}"}
+                    
+            except Exception as e:
+                # Если отвалился интернет или таймаут
+                data = {"status": "error", "output": "", "error": str(e)}
+            # ------------------------------------------------
+
+            # Дальше твоя старая логика сравнения:
+            got_output = (data.get('output') or '').strip()
+            status = "OK" if data.get('status') == 'success' and got_output == expected_output else "FAIL"
+            
+            results.append({
+                "test": num,
+                "input": input_data,
+                "expected": expected_output,
+                "got": got_output or 'Нет вывода',
+                "error": data.get('error'),
+                "status": status
+            })
+
+    return render_template('check.html', form=form, results=results)
 
           
 @app.route('/summernote_upload', methods=['POST'])
@@ -529,9 +609,18 @@ def create_task():
         print(f"Получен content: {form.content.data} (тип: {type(form.content.data)})")
        
        
-        newtask = Task(title=form.title.data, content=form.content.data, answer=form.answer.data)
-        newtask.created_date = datetime.now(timezone.utc)
-        newtask.user_id=current_user.id
+        #newtask = Task(title=form.title.data, content=form.content.data, answer=form.answer.data)
+        #newtask.created_date = datetime.now(timezone.utc)
+        #newtask.user_id=current_user.id
+        newtask = Task(
+            title=form.title.data,
+            content=form.content.data,
+            answer=form.answer.data,
+            type_id=form.type_id.data,          # <-- ЭТА СТРОКА КРИТИЧЕСКИ ВАЖНА!
+            created_date=datetime.now(timezone.utc),
+            user_id=current_user.id
+        )
+        
         
         selected_topic = form.topic.data
         if selected_topic:
@@ -605,7 +694,7 @@ def task(id):
     task2 = db.session.get(Task, id)
     if not task2:
         return abort(404)
-    form = SubmitForm()
+    form = SolutionForm()
     if form.validate_on_submit():
         
         
@@ -613,6 +702,12 @@ def task(id):
         
         print("--- ОТЛАДКА: Форма прошла валидацию ---")
         
+        if task2.task_type.name == 'code':
+            # Если задача на код -> берем то, что выбрал пользователь
+            newans.language = form.language.data 
+        else:
+            # Если текстовая задача -> ставим None (пусто) или метку 'text'
+            newans.language = None  # Или 'text', если колонка String не принимает NULL
         
         newans.created_date = datetime.now(timezone.utc)
         newans.user_id=current_user.id

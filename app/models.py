@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional,List
 import sqlalchemy as sa
 import sqlalchemy.orm as so
 from app import db
@@ -7,6 +7,18 @@ from app import login
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
 from hashlib import md5
+
+class TaskType(db.Model):
+    __tablename__ = 'task_types'
+    
+    id: so.Mapped[int] = so.mapped_column(primary_key=True)
+    name: so.Mapped[str] = so.mapped_column(sa.String(50), unique=True, nullable=False) # 'text', 'code', 'file'
+    description: so.Mapped[Optional[str]] = so.mapped_column(sa.String(200))
+    
+   
+
+    def __repr__(self):
+        return f'<TaskType {self.name}>'
 
 class Topic(UserMixin,db.Model):
     __tablename__ = 'topics' 
@@ -73,18 +85,12 @@ class Task(db.Model):
     
     id: so.Mapped[int] = so.mapped_column(primary_key=True, autoincrement=True)
     title: so.Mapped[str] = so.mapped_column(sa.String(50), nullable=True)
-    
-    # ИСПРАВЛЕНО: sa.String(255) вместо sa.String
     content: so.Mapped[str] = so.mapped_column(sa.Text(), nullable=True, default='Условие')
-    
-    # Если тема всегда короткая - оставляем 50-100. Если нет - тоже 255.
-          
+     
     topic_id: so.Mapped[int] = so.mapped_column(sa.ForeignKey(Topic.id, name='fk_tasks_topic'), nullable=True)
     topic: so.Mapped['Topic'] = so.relationship(back_populates='tasks')
     
-    # ВАЖНО: Если в answer будет большой текст (код решения, лог ошибки) - используй sa.Text()!
-    # Это спасет от проблем с длиной навсегда.
-    answer: so.Mapped[str] = so.mapped_column(sa.String(100), nullable=True, default='Без ответа')
+    answer: so.Mapped[str] = so.mapped_column(sa.Text(), nullable=True, default='Без ответа')
     
     created_date: so.Mapped[datetime] = so.mapped_column(index=True, default=lambda: datetime.now(timezone.utc))
     rating: so.Mapped[int] = so.mapped_column(sa.Integer, nullable=True, default=1)
@@ -93,6 +99,12 @@ class Task(db.Model):
     creator: so.Mapped['User'] = so.relationship(back_populates='task_user')
     solve_task: so.Mapped[list['Solve']] = so.relationship(back_populates='task', cascade="all,delete")
     
+     # 👇 ВОТ ЭТО МЫ ДОБАВИЛИ:
+    type_id = db.Column(db.Integer, sa.ForeignKey('task_types.id'), nullable=False)
+    
+    # 👇 И ЭТО (чтобы удобно обращаться к типу, например task.task_type.name):
+    task_type = db.relationship('TaskType', backref='tasks', lazy=True)
+    
     def __repr__(self):
         return f'<Task {self.title}>'
 
@@ -100,9 +112,10 @@ class Solve(db.Model):
     __tablename__ = 'solves'
     
     id: so.Mapped[int] = so.mapped_column(primary_key=True, autoincrement=True)
-    # ИСПРАВЛЕНО: Для кода решения лучше сразу Text
-    content: so.Mapped[str] = so.mapped_column(sa.String(100), nullable=True)
     
+    content: so.Mapped[str] = so.mapped_column(sa.Text(), nullable=True)
+    
+    language = so.mapped_column(db.String(20), nullable=True, default='python') 
     accept: so.Mapped[bool] = so.mapped_column(sa.Boolean, default=False)
     created_date: so.Mapped[datetime] = so.mapped_column(index=True, default=lambda: datetime.now(timezone.utc))
     

@@ -1,0 +1,12 @@
+/* Стиль для поля ввода кода */
+.code-input {
+    background-color: #f8f9fa; /* Светло-серый фон, как в IDE */
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace !important;
+    border-color: #ced4da;
+    color: #333;
+}
+
+/* Для Bootstrap: убираем лишние отступы у label, если нужно */
+.form-label {
+    font-weight: 600;
+}

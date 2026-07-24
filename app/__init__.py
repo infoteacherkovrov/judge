@@ -23,7 +23,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # Явно говорим Flask: "Статика лежит в папке static, которая лежит РЯДОМ с этим файлом"
 app = Flask(__name__, static_folder=os.path.join(BASE_DIR, 'static'))
 
-
+#app.config['SECRET_KEY'] = 'super-secret-key-for-dev-123'
 csrf = CSRFProtect()
 csrf.init_app(app)
 

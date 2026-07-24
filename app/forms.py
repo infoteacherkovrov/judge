@@ -3,7 +3,7 @@ from wtforms import StringField, PasswordField, BooleanField, SubmitField,Select
 from wtforms.validators import ValidationError, DataRequired, Email, EqualTo
 import sqlalchemy as sa
 from app import db
-from app.models import User, Role,Task,Topic
+from app.models import User, Role,Task,Topic,TaskType
 from wtforms import TextAreaField
 from wtforms.validators import Length
 from wtforms import HiddenField
@@ -76,10 +76,20 @@ class CreateTask(FlaskForm):
         allow_blank=True,  # Разрешаем оставить пустым, если тема необязательна
         blank_text='-- Выберите тему --'
         )
+    
+    type_id = SelectField('Тип задачи', coerce=int, validators=[DataRequired()])
+    
     title = StringField('Title', validators=[DataRequired()])
     content = TextAreaField('Content', validators=[Length(min=0, max=10000)])
-    answer = StringField('Answer', validators=[DataRequired()])
+    answer = TextAreaField('Answer', validators=[DataRequired()])
     submit = SubmitField('Create task')
+    
+    def __init__(self, *args, **kwargs):
+        super(CreateTask, self).__init__(*args, **kwargs)
+        # Динамически загружаем типы задач из БД
+        # <-- Проверь путь импорта! Может быть просто from models import TaskType
+        types = TaskType.query.all()
+        self.type_id.choices = [(t.id, t.description) for t in types]
     
    
 class EditTask(FlaskForm):
@@ -90,10 +100,18 @@ class EditTask(FlaskForm):
         allow_blank=True,  # Разрешаем оставить пустым, если тема необязательна
         blank_text='-- Выберите тему --'
         )
+    
+    type_id = SelectField('Тип задачи', coerce=int, validators=[DataRequired()])
+    
     title = StringField('Title', validators=[DataRequired()])
     content = TextAreaField('Content', validators=[Length(min=0, max=10000)])
-    answer = StringField('Answer', validators=[DataRequired()])
+    answer = TextAreaField('Answer', validators=[DataRequired()])
     submit = SubmitField('Edit task')
+    
+    def __init__(self, *args, **kwargs):
+        super(EditTask, self).__init__(*args, **kwargs)
+        types = TaskType.query.all()
+        self.type_id.choices = [(t.id, t.description) for t in types]
     
 class DeleteForm(FlaskForm):
     # Это поле нужно только для CSRF токена, если используешь hidden_tag()
@@ -104,8 +122,35 @@ class SubmitForm(FlaskForm):
     csrf_token = HiddenField() 
     answer = StringField('Enter your answer:', validators=[DataRequired()])
     submit = SubmitField('Submit')
+    
+class SolutionForm(FlaskForm):  # Назовем её SolutionForm, так как это форма отправки решения, а не создания задачи
+    # Для ответа используем TextAreaField (он всегда многострочный)
+    # Мы будем управлять его высотой через CSS классы в шаблоне
+    csrf_token = HiddenField() 
+    # 1. Выпадающий список языков
+    language = SelectField(
+        'Язык программирования',
+        choices=[('python', 'Python'), ('cpp', 'C++'), ('java', 'Java')],
+        default='python',
+        validators=[DataRequired()]
+    )
+    
+    # 2. Поле для ответа (оставляем как было)
+    answer = TextAreaField('Ваш ответ', validators=[DataRequired()])
+    submit = SubmitField('Отправить решение')
 
 class CreateTopic(FlaskForm):
     csrf_token = HiddenField() 
     topic = StringField('Enter new topic:', validators=[DataRequired()])
     submit = SubmitField('Submit')
+    
+class CodeForm(FlaskForm):
+    language = SelectField('Язык', choices=[
+        ('python3', 'Python 3'),
+        ('cpp', 'C++'),
+        ('java', 'Java')
+    ], default='python3')
+    code = TextAreaField('Код решения', validators=[DataRequired()])
+    submit = SubmitField('Запустить тесты')
+
+
