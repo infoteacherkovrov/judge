@@ -105,6 +105,8 @@ class Task(db.Model):
     # 👇 И ЭТО (чтобы удобно обращаться к типу, например task.task_type.name):
     task_type = db.relationship('TaskType', backref='tasks', lazy=True)
     
+    tests: so.Mapped[list['TestCase']] = so.relationship(back_populates='task', cascade="all, delete", order_by="TestCase.order_index")
+    
     def __repr__(self):
         return f'<Task {self.title}>'
 
@@ -129,6 +131,37 @@ class Solve(db.Model):
         db.Index('idx_solves_user_task', 'user_id', 'task_id'), 
     )
     
+class TestCase(db.Model):
+    __tablename__ = 'test_cases'
+
+    id: so.Mapped[int] = so.mapped_column(primary_key=True, autoincrement=True)
+    
+    # Связь с задачей: один тест принадлежит одной задаче
+    task_id: so.Mapped[int] = so.mapped_column(sa.ForeignKey('tasks.id'), nullable=False, index=True)
+    
+    # Входные данные (строка). Сюда можно кидать числа, JSON, текст — всё, что нужно программе на вход.
+    input_data: so.Mapped[str] = so.mapped_column(sa.Text(), nullable=False)
+    
+    # Ожидаемый результат (строка). То, что программа должна вывести.
+    expected_output: so.Mapped[str] = so.mapped_column(sa.Text(), nullable=False)
+    
+    # Порядок важен! Тесты должны идти строго по порядку, иначе проверка будет хаотичной.
+    order_index: so.Mapped[int] = so.mapped_column(default=0, index=True)
+
+    # Флаг: это пример для пользователя (видно в условии) или скрытый тест?
+    is_sample: so.Mapped[bool] = so.mapped_column(default=False)
+
+    # 👇 Вот эта строка отвечает за связь с твоим Task. 
+    # Она должна точно совпадать с именем поля в Task (там у тебя 'tests')
+    task: so.Mapped['Task'] = so.relationship(back_populates='tests')
+
+    def __repr__(self):
+        return f'<TestCase #{self.id} for Task {self.task_id}>'
+    
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, Index
+import sqlalchemy as sa
+from datetime import datetime, timezone
+
 
     
 

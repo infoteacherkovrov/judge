@@ -1,29 +1,182 @@
 {% extends "base.html" %}
 
 {% block content %}
-
-    <p align= right>Задача {{ task.id }}<br>
-        Рейтинг: {{task.rating}}<br>
+    <div class="px-4 py-0 border rounded" style="background-color: #e9ecef;">
+        <p align= right>Задача: {{ task.id }} |  Рейтинг: {{task.rating}}<br>
         {% if task.topic %}
-            Тема: <strong>{{ task.topic.topic }}</strong>
-    {% else %}
-            ⚠️ Тема не назначена
-    {% endif %} 
-    </p>
-    <div class="mt-4 mb-4 p-3 bg-light border rounded">
+                Тема: <strong>{{ task.topic.topic }}</strong>
+        {% else %}
+                ⚠️ Тема не назначена
+        {% endif %} 
+    </div>
+    <div class="mt-4 mb-4 p-4 border rounded">
         <h1 align=center>{{task.title}}</h1>
         <p>{{task.content|safe}}</p>
-    </div>
-    {% if is_admin()%}
-        <div class="alert alert-info">
-        <strong>Эталонный ответ:</strong>
-        {% if task.task_type.name == 'code' %}
-            <div class="code-block">
-                <pre><code class="language-python">{{ task.answer }}</code></pre>
-            </div>
+
+        <!-- БЛОК ПРИМЕРОВ (то, что можно проверить) -->
+        {% if is_code_task %}
+        
+            {% if is_admin %}
+                <!-- 🔷 РЕЖИМ АДМИНА: ВИДНЫ ВСЕ ТЕСТЫ -->
+                <div class="card mt-4 shadow-sm border-primary">
+                    <div class="card-header bg-primary text-white d-flex align-items-center gap-2">
+                        <i class="bi bi-shield-lock-fill"></i>
+                        <h5 class="mb-0">Все тесты задачи (Режим администратора)</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <p class="p-3 bg-light border-bottom small text-muted mb-0">
+                        Здесь показаны <b>все</b> тесты. Бейдж показывает: зелёный — пример (виден юзеру), серый — скрытый.
+                        </p>
+                
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="bg-light">
+                                    <tr>
+                                        <th style="width: 50px;">#</th>
+                                        <th>Статус</th>
+                                        <th>Ввод</th>
+                                        <th>Вывод</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                {% for test in all_tests %}
+                                    <tr>
+                                        <td class="fw-bold text-center">{{ test.order_index }}</td>
+                                        
+                                        <!-- Бейдж: Пример или Скрытый -->
+                                        <td>
+                                            {% if test.is_sample %}
+                                                <span class="badge bg-success">Пример</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">Скрытый</span>
+                                            {% endif %}
+                                        </td>
+
+                                        <!-- Вход: фиксированная высота + скролл -->
+                                        <td style="vertical-align: top;">
+                                            <div style="max-height: 120px; overflow-y: auto; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa; font-family: monospace; white-space: pre-wrap; word-break: break-all;">
+                                                {{ test.input_data or '— пусто —' }}
+                                            </div>
+                                        </td>
+
+                                        <!-- Выход: фиксированная высота + скролл -->
+                                        <td style="vertical-align: top;">
+                                            <div style="max-height: 120px; overflow-y: auto; border: 1px solid #dee2e6; padding: 8px; background: #e8f5e9; color: #198754; font-family: monospace; white-space: pre-wrap; word-break: break-all;">
+                                                {{ test.expected_output or '— пусто —' }}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            {% else %}
+                <!-- 🟨 РЕЖИМ ПОЛЬЗОВАТЕЛЯ: ТОЛЬКО ПРИМЕРЫ -->
+                {% if public_samples %}
+
+                    <div class="alert alert-primary mt-4 p-2 small d-flex align-items-center gap-1 border-left border-primary border-2">
+                            <i class="bi bi-lock-fill"></i>
+                            <span>Примеры для проверки (Pretests)</span>
+                    </div>
+                    <p class="text-muted small mb-3">
+                            Запустите свой код на этих данных. Если вывод совпадает — можно отправлять.
+                    </p>
+                    
+                    <table class="table table-bordered table-sm">
+                        <thead class="table-light">
+                            <tr>
+                            <th >Ввод</th>
+                            <th >Вывод</th>
+    
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for test in public_samples %}
+                            <tr class="table-white">
+                                <td style="max-width: 200px;">
+                                        <div class="p-1 text-break" style="max-height: 140px; overflow-y: auto; font-family: monospace; white-space: pre-wrap;">{{ test.input_data | trim or '— пусто —' }}</div>
+                                    </td>
+                                <td style="max-width: 200px;">
+                                        <div class="p-1 text-break" style="max-height: 140px; overflow-y: auto; font-family: monospace; white-space: pre-wrap;">{{ test.expected_output | trim or '— пусто —' }}</div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+
+                    <!-- Старый вывод тестов
+
+
+
+
+                    <div class="card mt-4 shadow-sm">
+                        <div class="card-header bg-primary text-white d-flex align-items-center gap-2">
+                            <i class="bi bi-play-circle-fill"></i>
+                            <h5 class="mb-0">Примеры для проверки (Pretests)</h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted small mb-3">
+                            Запустите свой код на этих данных. Если вывод совпадает — можно отправлять.
+                            </p>
+                            <div class="row">
+                                        <div class="col-md-6">
+                                            <label class="form-label fst-italic small text-uppercase text-muted">Ввод:</label>
+                                                
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label fst-italic small text-uppercase text-muted">Вывод:</label>
+                                               
+                                        </div>
+                
+                            {% for test in public_samples %}
+                                <div class="border rounded p-3 mb-3 bg-light shadow-sm position-relative">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div style="max-height: 150px; overflow-y: auto; border: 0px solid #ced4da; padding: 6px; background: white; font-family: 'Courier New', Courier, monospace; white-space: pre-wrap; word-break: break-all;">{{ test.input_data | trim or '— пусто —' }}</div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div style="max-height: 150px; overflow-y: auto; border: 0px solid #28a745; padding: 6px; background: #d4edda; color: #155724; font-family: 'Courier New', Courier, monospace; white-space: pre-wrap;">{{ test.expected_output | trim or '— пусто —' }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                            
+                            
+                        </div>
+                    </div>
+                -->
+                {% endif %}
+
+                <!-- Плашка про скрытые тесты -->
+                {% if hidden_count > 0 %}
+                    <div class="alert alert-warning mt-4  p-2 small d-flex align-items-center gap-1 border-left border-warning border-2">
+                        <i class="bi bi-lock-fill"></i>
+                        <span class="fw-bold">Внимание:</span> 
+                        В системе есть ещё <b>{{ hidden_count }}</b> скрытых тестов, которые не показаны здесь. 
+                        Ваше решение должно работать корректно на всех тестах.
+                    </div>
+                {% endif %}
+            {% endif %}
         {% else %}
-            <p>{{ task.answer }}</p>
+            <!-- Если это НЕ задача на код, можно вывести просто подсказку -->
+            <div class="alert alert-info mt-4">
+                Это текстовая задача. Просто введите ответ в поле ниже.
+            </div>
         {% endif %}
+    </div>
+
+    {% if is_admin%}
+        <div class="alert alert-info px-4 border rounded">
+            <strong>Эталонный ответ:</strong>
+            {% if task.task_type.name == 'code' %}
+                <div class="code-block">
+                    <pre><code class="language-python">{{ task.answer }}</code></pre>
+                </div>
+            {% else %}
+                <p>{{ task.answer }}</p>
+            {% endif %}
         </div>
     {% endif %}
                 
@@ -31,12 +184,12 @@
                 
             
 
-{% from 'bootstrap5/form.html' import render_form %}
+    {% from 'bootstrap5/form.html' import render_form %}
 
     <!-- ... предыдущий код (условие, эталонный ответ) ... -->
 
     <!-- Форма отправки решения -->
-    <div class="row justify-content-left mt-5">
+    <div class="py-2 px-4 border rounded">
         <div class="col-md-6">
             <form action="" method="post">
                 {{ form.hidden_tag() }}
@@ -58,7 +211,7 @@
                     </div>
                 {% endif %}
                 <!-- ======================================================= -->
-                 
+
                 <!-- === ПОЛЕ ОТВЕТА (УМНОЕ) === -->
                 <div class="mb-3">
                     {{ form.answer.label(class_="form-label") }}
@@ -97,6 +250,122 @@
             </form>
         </div> 
     </div>
+<!-- Экспорт решений в zip-файл-->
+
+{% if is_admin %}
+<div class="card mt-4">
+    <div class="card-body p-3 bg-white rounded">
+        <div class="d-flex flex-wrap align-items-center gap-3 justify-content-between">
+        
+            
+            <!-- Форма с фильтрами -->
+            <form action="{{ url_for('export_solutions', id=task.id) }}" method="GET" class="d-flex flex-wrap align-items-center gap-2">
+                <p>Экспорт:</p>
+                <!-- Даты -->
+                <input type="date" name="start" class="form-control form-control-sm" placeholder="С даты">
+                <input type="date" name="end" class="form-control form-control-sm" placeholder="По дату">
+
+                <!-- Разделитель (опционально) -->
+                <span class="text-muted small px-2 border-end border-secondary">или</span>
+
+                <!-- Фильтр по статусу: Чекбоксы ВНЕ кнопки! -->
+                <div class="d-flex align-items-center gap-3">
+                    <div class="form-check mb-0">
+                        <input class="form-check-input" type="checkbox" name="accepted" id="filter_accepted" checked>
+                        <label class="form-check-label small fw-bold text-success" for="filter_accepted">
+                            ✅ Принято
+                        </label>
+                    </div>
+                    <div class="form-check mb-0">
+                        <input class="form-check-input" type="checkbox" name="rejected" id="filter_rejected" checked>
+                        <label class="form-check-label small fw-bold text-danger" for="filter_rejected">
+                            ⚠️ Неверно
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Кнопка отправки -->
+                <button type="submit" class="btn btn-sm btn-primary">
+                    <i class="bi bi-download"></i> Скачать решения в ZIP
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Блок с результатами тестов (показываем только после проверки) -->
+{% if is_checked and is_code_task%}
+<div class="mt-4 p-3 border rounded bg-white shadow-sm">
+    <h5>Результаты проверки:</h5>
+    
+    {% if final_status == 'accepted' %}
+        <div class="alert alert-success">
+            🎉 Поздравляем! Все тесты пройдены успешно!
+        </div>
+    {% elif final_status == 'rejected' %}
+        <div class="alert alert-danger">
+            ❌ Решение не принято. Посмотрите детали ниже.
+        </div>
+    {% else %}
+        <div class="alert alert-warning">
+            ⚠️ Произошла ошибка при проверке решения.
+        </div>
+    {% endif %}
+
+    <table class="table table-bordered table-sm">
+        <thead class="table-light">
+            <tr>
+            <th style="width: 5%;">Тест #</th>
+            <th style="width: 10%;">Статус</th>
+            <th style="width: 25%;">Ввод</th>
+            <th style="width: 30%;">Вывод</th>
+            <th style="width: 30%;">Ваш ответ</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for res in results %}
+            <tr class="{% if res.status == 'OK' %}table-success{% elif res.status == 'Wrong Answer' %}table-danger{% elif res.status == 'Runtime Error' %}table-warning{% else %}table-secondary{% endif %}">
+                <td class="fw-bold text-center">{{ res.test_num }}</td>
+                
+                <td>
+                    {% if res.status == 'OK' %}
+                        <span class="badge bg-success">OK</span>
+                    {% elif res.status == 'Wrong Answer' %}
+                        <span class="badge bg-danger">WA</span>
+                    {% elif res.status == 'Runtime Error' %}
+                        <span class="badge bg-warning text-dark">RE</span>
+                    {% else %}
+                        <span class="badge bg-secondary">{{ res.status }}</span>
+                    {% endif %}
+                </td>
+
+                {% if res.is_sample or is_admin %} 
+                    <!-- ⚠️ ВАЖНО: Используем is_admin_view, чтобы работало корректно -->
+                    
+                    <td style="max-width: 200px;">
+                        <div class="p-1 text-break" style="max-height: 140px; overflow-y: auto; font-family: monospace; white-space: pre-wrap;">{{ res.input|default('(пусто)', true) }}</div>
+                    </td>
+                    <td style="max-width: 200px;">
+                        <div class="p-1 text-break" style="max-height: 140px; overflow-y: auto; font-family: monospace; white-space: pre-wrap;">{{ res.expected|default('', true) }}</div>
+                    </td>
+                    <td style="max-width: 200px;">
+                        <div class="p-1 text-break" style="max-height: 140px; overflow-y: auto; font-family: monospace; white-space: pre-wrap;">{{ res.got|default('', true) }}</div>
+                    </td>
+                {% else %}
+                    <td colspan="3" class="text-muted small fst-italic text-center py-3">
+                        Данные скрыты для пользователя
+                    </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<!-- Кнопка видна ТОЛЬКО админу -->
+
 
 <!-- ... таблица решений (оставь как была) ... -->
 

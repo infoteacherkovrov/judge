@@ -1,15 +1,230 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <h1>Create new task</h1>
-    {% from 'bootstrap5/form.html' import render_form %}
+<h2>Создать задачу</h2>
+<div class="card">
+    <div class="card-body">
+        <form method="post" action="">
+            {{ form.hidden_tag() }}
 
-    <div class="row justify-content-center">
-        <div class="col-md-6">
-            <form action="" method="post">
-                {{ form.hidden_tag() }}
-                {{ render_form(form) }}
-            </form>
-        </div>   
+            <!-- Блок для показа ошибок валидации -->
+            {% if form.errors %}
+                <div class="alert alert-danger">
+                    <strong>Ошибки в форме:</strong>
+                    <ul>
+                        {% for field, errors in form.errors.items() %}
+                            {% for error in errors %}
+                                <li><strong>{{ field }}:</strong> {{ error }}</li>
+                            {% endfor %}
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
+            
+            <!-- Обычные поля -->
+            <div class="mb-3">
+                {{ form.title.label(class="form-label") }}
+                {{ form.title(class="form-control", size=32) }}
+            </div>
+
+            <div class="mb-3">
+                {{ form.content.label(class="form-label") }}
+                
+                <!-- 1. ИСПРАВЛЕНО: Настоящий скрытый INPUT (не textarea!) -->
+                <input type="hidden" name="content" id="content-hidden" value="{{ form.content.data | default('') }}">
+                
+                <!-- 2. Контейнер для редактора -->
+                <div id="summernote"></div>
+                
+                {% if form.content.errors %}
+                    <div class="text-danger mt-1">
+                        {% for error in form.content.errors %}{{ error }}{% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="mb-3">
+                {{ form.type_id.label(class="form-label") }}
+                {{ form.type_id(class="form-select") }}
+            </div>
+
+            <!-- ✅ НОВОЕ ПОЛЕ: ЭТАЛОННЫЙ КОД -->
+            <div class="mb-4">
+                <label class="form-label">Эталонное решение (код) или правильный ответ</label>
+                <div class="alert alert-info small">
+                    Для задач типа "Code": сюда вставляется пример правильного кода. 
+                    Сейчас здесь стоит шаблон — можешь его отредактировать или удалить.
+                </div>
+                <!-- WTForms сам подставит значение из default в forms.py -->
+                {{ form.answer(class="form-control", rows=8) }}
+            </div>
+            <!-- ✅ КОНЕЦ НОВОГО ПОЛЯ -->
+
+            <hr>
+            <h4>Тесты для проверки</h4>
+            <div class="alert alert-warning small text-break" style="margin-bottom: 15px; border-left: 5px solid #ffc107;">
+                <i class="bi bi-exclamation-circle-fill" style="vertical-align: middle; margin-right: 8px;"></i>
+                <strong>Важно:</strong> Для переноса строки нажимайте клавишу <b>Enter</b>. 
+                Не вводите символы <code>\n</code> вручную — система воспримет их как обычный текст, 
+                и проверка задачи завершится ошибкой.
+            </div>
+            
+            <!-- Контейнер для всех тестов -->
+            <div id="tests-container">
+                {% for test_form in form.tests %}
+                <div class="test-item border p-3 mb-3 bg-light rounded" data-index="{{ loop.index0 }}">
+                    <!-- Кнопка удаления только если тестов больше 1 -->
+                    {% if loop.length > 1 %}
+                    <button type="button" class="btn btn-sm btn-danger float-end" onclick="removeTest(this)">Удалить</button>
+                    {% else %}
+                    <span class="float-end text-muted small">Минимум 1 тест</span>
+                    {% endif %}
+                    
+                    <h5 id="test-title-{{ loop.index0 }}" class="test-header">Тест № {{ loop.index }}</h5>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <label class="form-label">Входные данные</label>
+                            <!-- ВАЖНО: Используем стандартный рендер поля, WTForms сам проставит правильные name="tests-0-input_data" -->
+                            {{ test_form.input_data(class="form-control", rows=2) }}
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <label class="form-label">Ожидаемый вывод</label>
+                            {{ test_form.expected_output(class="form-control", rows=2) }}
+                        </div>
+
+                        <div class="col-md-2 pt-4">
+                            <div class="form-check">
+                                {{ test_form.is_sample(class="form-check-input") }}
+                                <label class="form-check-label">Показать как пример</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <button type="button" id="add-test-btn" class="btn btn-success mb-3" onclick="addTest()">+ Добавить тест</button>
+
+            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                <a href="{{ url_for('index') }}" class="btn btn-secondary me-md-2">Отмена</a>
+                <button type="submit" class="btn btn-primary">Сохранить задачу</button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}
-<p>New User? <a href="{{ url_for('register') }}">Click to Register!</a></p>
+
+<!-- JavaScript для динамического добавления тестов -->
+{% block scripts %}
+    <!-- 1. jQuery (обязательно первым!) -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
+
+    <!-- 2. Summernote LITE (НЕ bs5! Эта версия не зависит от Bootstrap) -->
+    <link href="https://cdn.jsdelivr.net/npm/summernote@0.9.0/dist/summernote-lite.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/summernote@0.9.0/dist/summernote-lite.min.js"></script>
+
+    <!-- 3. ТВОИ ФУНКЦИИ ДЛЯ ТЕСТОВ (addTest, removeTest, renumberTests) -->
+    <script>
+        function addTest() {
+            const template = document.querySelector('.test-item');
+            if (!template) return;
+
+            const container = document.getElementById('tests-container');
+            const count = container.querySelectorAll('.test-item').length;
+            
+            const newTest = template.cloneNode(true);
+            
+            // Очищаем значения
+            const inputs = newTest.querySelectorAll('input, textarea');
+            inputs.forEach(input => {
+                if (input.type === 'checkbox') {
+                    input.checked = false;
+                } else {
+                    input.value = ''; 
+                }
+            });
+
+            // Обновляем NAME атрибуты
+            const fields = newTest.querySelectorAll('[name]');
+            fields.forEach(field => {
+                const parts = field.name.split('-');
+                if (parts.length >= 3) {
+                    parts[1] = count.toString();
+                    field.name = parts.join('-');
+                    
+                    if (field.id) {
+                        const idParts = field.id.split('-');
+                        if (idParts.length >= 3) {
+                            idParts[1] = count.toString();
+                            field.id = idParts.join('-');
+                        }
+                    }
+                }
+            });
+
+            container.appendChild(newTest);
+            renumberTests();
+        }
+
+        function removeTest(btn) {
+            const item = btn.closest('.test-item');
+            if (item) {
+                item.remove();
+                if (document.querySelectorAll('.test-item').length === 0) {
+                    alert('Должен быть хотя бы один тест!');
+                    location.reload();
+                } else {
+                    renumberTests();
+                }
+            }
+        }
+
+        function renumberTests() {
+            const headers = document.querySelectorAll('.test-header');
+            headers.forEach((header, index) => {
+                header.textContent = `Тест № ${index + 1}`;
+            });
+        }
+    </script>
+
+    <!-- 4. ИНИЦИАЛИЗАЦИЯ SUMMERNOTE (как в твоем edit_task) -->
+    <script>
+        $(document).ready(function() {
+            console.log('✅ Summernote Lite init started');
+
+            $('#summernote').summernote({
+                height: 400,
+                toolbar: [
+                    ['style', ['style']],
+                    ['font', ['bold', 'italic', 'underline', 'clear']],
+                    ['color', ['color']],
+                    ['para', ['ul', 'ol', 'paragraph']],
+                    ['table', ['table']],
+                    ['insert', ['link', 'picture']],
+                    ['view', ['fullscreen', 'codeview']]
+                ],
+                callbacks: {
+                    onImageUpload: function(files) {
+                        // Пока заглушка, чтобы не было ошибок в консоли
+                        console.warn('🚫 Загрузка картинок отключена (нет бэкенда)');
+                        // Сюда можно вставить твой AJAX из edit_task, если бэкенд готов
+                    }
+                }
+            });
+
+            // Загружаем контент, если он есть (для режима редактирования)
+            // Для CREATE будет пусто
+            const initialContent = "{{ form.content.data | default('') | safe }}";
+            if (initialContent && initialContent.trim() !== "") {
+                $('#summernote').summernote('code', initialContent);
+            }
+
+            // Перед отправкой формы копируем HTML из редактора в скрытое поле
+            $('form').on('submit', function(e) {
+                const htmlContent = $('#summernote').summernote('code');
+                $('#content-hidden').val(htmlContent);
+            });
+        });
+    </script>
+{% endblock %}

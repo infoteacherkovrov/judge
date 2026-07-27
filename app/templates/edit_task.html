@@ -1,82 +1,13 @@
 {% extends "base.html" %}
 
 {% block styles %}
-    <!--
-    <style>
-        /* 1. Гарантируем, что редактор виден */
-        #summernote {
-            min-height: 300px;
-            border: 1px solid #ced4da;
-            border-radius: 0.25rem;
-            padding: 10px;
-        }
-
-        /* 2. ГЛАВНОЕ: Делаем кнопки большими и с текстом */
-        .note-btn-group button {
-            /* Убираем всё лишнее, делаем акцент на тексте */
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            
-            /* Размер кнопки */
-            padding: 8px 16px !important;
-            min-width: 60px !important; /* Чтобы текст влезал */
-            
-            /* Шрифт и цвет */
-            font-size: 0.85rem !important;
-            font-weight: 500 !important;
-            color: #333 !important;
-            text-transform: uppercase; /* Текст капсом, как в старых интерфейсах */
-            letter-spacing: 0.5px;
-            
-            /* Стиль фона (в стиле Bootstrap 5) */
-            background-color: #f8f9fa !important;
-            border: 1px solid #dee2e6 !important;
-            border-radius: 0.25rem !important;
-            box-shadow: none !important;
-        }
-
-        /* Цвет при наведении */
-        .note-btn-group button:hover {
-            background-color: #e9ecef !important;
-            color: #000 !important;
-        }
-
-        /* Цвет активной кнопки (когда выбрано) */
-        .note-btn-group button.active {
-            background-color: #0d6efd !important;
-            color: #fff !important;
-            border-color: #0d6efd !important;
-        }
-
-        /* 3. Убираем сломанные иконки внутри кнопок */
-        .note-btn-group button i,
-        .note-btn-group button span.note-icon {
-            display: none !important; 
-        }
-
-        /* 4. Исправляем выпадающие списки (чтобы не были микроскопическими) */
-        .note-drop-menu-wrapper .note-drop-menu {
-            min-width: 240px !important;
-            padding: 8px !important;
-        }
-        
-        .note-drop-menu-wrapper .note-drop-menu button {
-            width: 100%;
-            text-align: left;
-            margin-bottom: 4px;
-            padding: 6px 12px !important;
-            font-size: 0.9rem !important;
-        }
-    </style>
--->
+    
 {% endblock %}
 
 {% block content %}
-<h1>Edit task</h1>
-
-<div class="row justify-content-center">
-    <div class="col-md-8">
+<h2> Редактировать задачу</h2>
+<div class="card">
+    <div class="card-body">
         <form action="" method="post" id="task-form">
             {{ form.hidden_tag() }}
             <!--Type-->
@@ -106,169 +37,187 @@
             <!-- Content (Summernote) -->
             
             <div class="mb-3">
-                
-                {{ form.content.label(class_="form-label") }}
-                <textarea id="summernote"></textarea>
-                 <!-- Скрытое поле для WTForms -->
-                
-                
-               
-                {{ form.content(class_="form-control", style="display: none;") }}
-                
-                
-
-                {% if form.content.errors %}
-                    <div class="text-danger mt-1">
-                        {% for error in form.content.errors %}{{ error }}{% endfor %}
-                    </div>
-                {% endif %}
+                <label class="form-label">Условие задачи</label>
+                <!-- Скрытое поле, которое Flask прочитает как form.content -->
+                <input type="hidden" name="content" id="content-hidden" value="{{ form.content.data | default('') }}">
+                <!-- Контейнер редактора -->
+                <div id="summernote"></div>
             </div>
 
             <!-- Answer -->
             <div class="mb-3">
-                {{ form.answer.label(class_="form-label") }}
-                {{ form.answer(class_="form-control") }}
-                {% for error in form.answer.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}
+                {{ form.answer.label(class="form-label") }}
+                {{ form.answer(class="form-control", rows=10) }}
+            </div>
+            <!-- 3. ТЕСТЫ (Теперь они внутри формы!) -->
+           
+                 <hr>
+            <h4>Тесты для проверки</h4>
+            <div class="alert alert-warning small text-break" style="margin-bottom: 15px; border-left: 5px solid #ffc107;">
+                <i class="bi bi-exclamation-circle-fill" style="vertical-align: middle; margin-right: 8px;"></i>
+                <strong>Важно:</strong> Для переноса строки нажимайте клавишу <b>Enter</b>. 
+                Не вводите символы <code>\n</code> вручную — система воспримет их как обычный текст, 
+                и проверка задачи завершится ошибкой.
+            </div>
+            <!-- Контейнер для всех тестов -->
+            <div id="tests-container">
+                {% for test_form in form.tests %}
+                <div class="test-item border p-3 mb-3 bg-light rounded" data-index="{{ loop.index0 }}">
+                    <!-- Кнопка удаления только если тестов больше 1 -->
+                    {% if loop.length > 1 %}
+                    <button type="button" class="btn btn-sm btn-danger float-end" onclick="removeTest(this)">Удалить</button>
+                    {% else %}
+                    <span class="float-end text-muted small">Минимум 1 тест</span>
+                    {% endif %}
+                    
+                    <h5 id="test-title-{{ loop.index0 }}" class="test-header">Тест № {{ loop.index }}</h5>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <label class="form-label">Входные данные</label>
+                            <!-- ВАЖНО: Используем стандартный рендер поля, WTForms сам проставит правильные name="tests-0-input_data" -->
+                            {{ test_form.input_data(class="form-control", rows=2) }}
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <label class="form-label">Ожидаемый вывод</label>
+                            {{ test_form.expected_output(class="form-control", rows=2) }}
+                        </div>
+
+                        <div class="col-md-2 pt-4">
+                            <div class="form-check">
+                                {{ test_form.is_sample(class="form-check-input") }}
+                                <label class="form-check-label">Показать как пример</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
             </div>
 
-            {{ form.submit(class_="btn btn-primary") }}
+            <button type="button" id="add-test-btn" class="btn btn-success mb-3" onclick="addTest()">+ Добавить тест</button>
 
-
-
-
-           
-
-
-
-
-            
+            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                <a href="{{ url_for('index') }}" class="btn btn-secondary me-md-2">Отмена</a>
+                <button type="submit" class="btn btn-primary">Сохранить задачу</button>
+            </div>
+        </form>
+         
         </form>
     </div>  
 </div>
 {% endblock %}
 
 
-
+<!-- JavaScript для динамического добавления тестов -->
 {% block scripts %}
-    <!-- Пути простые: filename='имя_файла.js' 
-    <script src="{{ url_for('static', filename='jquery-3.6.0.min.js') }}"></script>
-    
-    <link rel="stylesheet" href="static/bootstrap.min.css" />
-    <script src="{{ url_for('static', filename='bootstrap.bundle.min.js') }}"></script>
-    
+    <!-- 1. jQuery (обязательно первым!) -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
 
-    <link href="static/summernote-bs5.min.css" rel="stylesheet">
-    <script src="{{ url_for('static', filename='summernote-bs5.min.js') }}"></script>
-   
-    -->
-
-   
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"  crossorigin="anonymous"></script>
+    <!-- 2. Summernote LITE (НЕ bs5! Эта версия не зависит от Bootstrap) -->
     <link href="https://cdn.jsdelivr.net/npm/summernote@0.9.0/dist/summernote-lite.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/summernote@0.9.0/dist/summernote-lite.min.js"></script>
-     <!--Bootstrup 5
-    <script type="text/javascript" src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" />
-    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous""></script>
 
-    
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/summernote/0.9.1/summernote-bs5.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/summernote@latest/dist/summernote-bs5.min.js"></script>
-    
-    -->     
+    <!-- 3. ТВОИ ФУНКЦИИ ДЛЯ ТЕСТОВ (addTest, removeTest, renumberTests) -->
+    <script>
+        function addTest() {
+            const template = document.querySelector('.test-item');
+            if (!template) return;
+
+            const container = document.getElementById('tests-container');
+            const count = container.querySelectorAll('.test-item').length;
+            
+            const newTest = template.cloneNode(true);
+            
+            // Очищаем значения
+            const inputs = newTest.querySelectorAll('input, textarea');
+            inputs.forEach(input => {
+                if (input.type === 'checkbox') {
+                    input.checked = false;
+                } else {
+                    input.value = ''; 
+                }
+            });
+
+            // Обновляем NAME атрибуты
+            const fields = newTest.querySelectorAll('[name]');
+            fields.forEach(field => {
+                const parts = field.name.split('-');
+                if (parts.length >= 3) {
+                    parts[1] = count.toString();
+                    field.name = parts.join('-');
+                    
+                    if (field.id) {
+                        const idParts = field.id.split('-');
+                        if (idParts.length >= 3) {
+                            idParts[1] = count.toString();
+                            field.id = idParts.join('-');
+                        }
+                    }
+                }
+            });
+
+            container.appendChild(newTest);
+            renumberTests();
+        }
+
+        function removeTest(btn) {
+            const item = btn.closest('.test-item');
+            if (item) {
+                item.remove();
+                if (document.querySelectorAll('.test-item').length === 0) {
+                    alert('Должен быть хотя бы один тест!');
+                    location.reload();
+                } else {
+                    renumberTests();
+                }
+            }
+        }
+
+        function renumberTests() {
+            const headers = document.querySelectorAll('.test-header');
+            headers.forEach((header, index) => {
+                header.textContent = `Тест № ${index + 1}`;
+            });
+        }
+    </script>
+
+    <!-- 4. ИНИЦИАЛИЗАЦИЯ SUMMERNOTE (как в твоем edit_task) -->
     <script>
         $(document).ready(function() {
-            console.log('✅ jQuery загружен!');
-
-            // Проверка Summernote
-            if (typeof $.fn.summernote === 'undefined') {
-                console.error('❌ ОШИБКА: Summernote не загружен! Проверь Network.');
-                return;
-            }
-
-            var initialContent = {{ form.content.data | default('') | tojson }};
-            
+            console.log('✅ Summernote Lite init started');
 
             $('#summernote').summernote({
-                
-                height: 500,
+                height: 400,
                 toolbar: [
-                        ['style', ['style']],
-                        ['fontsize', ['fontsize']],
-                        ['font', ['bold', 'italic', 'underline', 'strikethrough', 'superscript',
-                            'subscript', 'clear'
-                        ]],
-                        ['color', ['color']],
-                        ['para', ['ul', 'ol', 'paragraph']],
-                        ['table', ['table']],
-                        ['height', ['height']],
-                        ['insert', ['link', 'picture', 'video']],
-                        ['view', ['fullscreen', 'codeview']],
-                        ['fontname', ['fontname']],
-                        ['misc', ['help']],
-                    ],
-            callbacks: {
+                    ['style', ['style']],
+                    ['font', ['bold', 'italic', 'underline', 'clear']],
+                    ['color', ['color']],
+                    ['para', ['ul', 'ol', 'paragraph']],
+                    ['table', ['table']],
+                    ['insert', ['link', 'picture']],
+                    ['view', ['fullscreen', 'codeview']]
+                ],
+                callbacks: {
                     onImageUpload: function(files) {
-                        console.log("🖱️ Summernote передал файлы:", files);
-                        
-                        var file = files[0]; // Summernote всегда передаёт массив
-                        
-                        if (!file) {
-                        console.error("❌ Файл не найден!");
-                        return;
-                        }
-
-    var formData = new FormData();
-    // КЛЮЧ ДОЛЖЕН БЫТЬ СТРОГО 'file'
-    formData.append('file', file); 
-    
-    console.log("📦 FormData создан. Отправляем...");
-    
-// CSRF-токен всегда должен присутствовать в заголовке вашего Ajax запроса.
-
-
-
-    $.ajax({
-      url: '/summernote_upload',
-      type: 'POST',
-      data: formData,
-      cache: false,
-      
-      contentType: false,   // 🔥 ОБЯЗАТЕЛЬНО false (иначе сервер не увидит файл)
-      processData: false,  // 🔥 ОБЯЗАТЕЛЬНО false (иначе файл превратится в мусор)
-      success: function(response) {
-        console.log("✅ Сервер ответил:", response);
-        $('#summernote').summernote('insertImage', response.url, 'filename');
-      },
-      error: function(xhr) {
-        console.error("❌ AJAX ошибка:", xhr.responseText);
-      }
-    });
-
-    
-  }
-},
-
-            });
-            
-
-            setTimeout(function() {
-                if (initialContent && initialContent.trim() !== "") {
-                    $('#summernote').summernote('code', initialContent);
+                        // Пока заглушка, чтобы не было ошибок в консоли
+                        console.warn('🚫 Загрузка картинок отключена (нет бэкенда)');
+                        // Сюда можно вставить твой AJAX из edit_task, если бэкенд готов
+                    }
                 }
-            }, 100);
+            });
 
-            $('#task-form').on('submit', function(e) {
-                var htmlContent = $('#summernote').summernote('code');
-                $('textarea[name="content"]').val(htmlContent);
+            // Загружаем контент, если он есть (для режима редактирования)
+            // Для CREATE будет пусто
+            const initialContent = "{{ form.content.data | default('') | safe }}";
+            if (initialContent && initialContent.trim() !== "") {
+                $('#summernote').summernote('code', initialContent);
+            }
+
+            // Перед отправкой формы копируем HTML из редактора в скрытое поле
+            $('form').on('submit', function(e) {
+                const htmlContent = $('#summernote').summernote('code');
+                $('#content-hidden').val(htmlContent);
             });
         });
-     
-    
     </script>
 {% endblock %}
-
-
-
-
-

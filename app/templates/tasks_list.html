@@ -18,11 +18,11 @@
         </select>
         
         <!-- Кнопка сброса (опционально, так как onchange уже отправляет форму) -->
-        <button type="button" onclick="window.location.href='{{ url_for('view_tasks') }}'" class="btn btn-secondary">Сброс</button>
+        <button type="button" onclick="window.location.href='{{ url_for('tasks_list') }}'" class="btn btn-secondary">Сброс</button>
     </form>
 </div>
 
-{% include 'pagin_tasks.html' %}
+{% include 'pagin_tasks_list.html' %}
 
 <table class="table table-striped table-hover">
     <thead>
@@ -36,7 +36,9 @@
         <th>Рейтинг</th>
         
         <th>Автор</th>
-        <th>Посылок</th>
+        
+        <th>Сложность</th>
+        <th>Решили / Решали / Попыток</th>
         <th>Статус</th>
         <th>Действия</th>
       </tr>
@@ -60,7 +62,15 @@
         {% endif %}
         
         <!-- Попытки (количество объектов Solve) -->
-        <td class="text-center">{{ u.solve_task | length }}</td>
+        {% if u.unique_attempts > 0 %}
+            <td class="text-center">{{ (100-((u.unique_solved /u.unique_attempts) * 100)) | int }}%</td>
+        {% else %}
+            <td class="text-center">--</td>
+        {% endif %}
+
+        <td class="text-center">{{ u.unique_solved}} / {{ u.unique_attempts }} / {{ u.solve_task | length }}</td>
+            
+
 
         <!-- 👇 НОВАЯ ЛОГИКА: Пиктограмма -->
         <td class="text-center">
@@ -99,7 +109,7 @@
     </tr>
     {% endfor %}
 </table>
-{% include 'pagin_tasks.html' %}
+{% include 'pagin_tasks_list.html' %}
 
 
 <!-- === МОДАЛЬНОЕ ОКНО (ОДНО НА ВСЮ СТРАНИЦУ) === -->

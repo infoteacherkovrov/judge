@@ -1,10 +1,10 @@
-from flask import render_template, flash, redirect, url_for, abort
+from flask import render_template, flash, redirect, url_for, abort,session
 from app import app,db
 from app.forms import CodeForm, LoginForm, RegistrationForm, AdminRoleForm, CreateTask, EditTask, DeleteForm, SolutionForm, CreateTopic, UploadImageForm
 from flask_login import current_user, login_user,logout_user
 import sqlalchemy as sa
 import sqlalchemy.orm as so
-from app.models import User, Role, Task, Solve, Topic
+from app.models import User, Role, Task, Solve, Topic,TestCase
 from flask_login import login_required
 from flask import request,jsonify
 from urllib.parse import urlsplit
@@ -12,8 +12,8 @@ from datetime import datetime, timezone,timedelta
 from app.forms import EditProfileForm
 
 from flask_login import login_required
-from sqlalchemy import select
-from flask import abort
+from sqlalchemy import select,case
+from flask import abort,send_file
 from functools import wraps
 
 from sqlalchemy.orm import selectinload
@@ -23,6 +23,11 @@ import os
 import uuid
 from flask import render_template
 import requests
+import re
+
+import zipfile
+import io
+
 
 
 UPLOAD_FOLDER = 'app/static/images/'
@@ -593,7 +598,48 @@ def admin_users():
     return render_template('admin_users.html', users=users, roles=roles, form=form)
 
 
+def normalize_summernote_images(html_content):
+    if not html_content:
+        return html_content
 
+    print(f"🛠️ Функция вызвана. Длина контента: {len(html_content)}")
+
+    # Ищем src, где внутри есть static/images. 
+    # Этот паттерн ловит и http://..., и /static/..., и static/...
+    # (.+?) захватывает всё до static/, а (static/[^"\']+) захватывает сам путь к файлу
+    pattern = r'src=["\'](.+?)(static/[^"\']+)["\']'
+    
+    def replacer(match):
+        prefix = match.group(1)      # Всё, что было ДО static/ (например, "http://127.0.0.1:5000/")
+        path_part = match.group(2)  # Сам путь: "static/images/23.jpg"
+        
+        print(f"🔍 Нашли картинку: префикс='{prefix}', путь='{path_part}'")
+
+        # Очищаем путь, убираем "static/" в начале, чтобы получить просто "images/23.jpg"
+        filename = path_part.replace('static/', '')
+        
+        if not filename:
+            print("❌ Ошибка: имя файла пустое!")
+            return match.group(0)
+
+        try:
+            # Генерируем ПРАВИЛЬНЫЙ путь через url_for. 
+            # Flask сам решит, как правильно отдать файл (даже если ты потом поменяешь домен)
+            correct_url = url_for('static', filename=filename)
+            print(f"✅ Превратили '{prefix}{path_part}' в '{correct_url}'")
+            return f'src="{correct_url}"'
+        except Exception as e:
+            print(f"💥 Ошибка генерации URL: {e}")
+            return match.group(0)
+
+    new_html = re.sub(pattern, replacer, html_content)
+    
+    if new_html == html_content:
+        print("📭 Ничего не найдено. Возможно, картинки нет или формат другой.")
+    else:
+        print("✨ Замена выполнена успешно!")
+        
+    return new_html
 
 @app.route('/create_task', methods=['GET', 'POST'])
 @login_required
@@ -601,6 +647,17 @@ def create_task():
     if not is_admin():
         flash('У вас нет прав для доступа к этой странице', 'danger')
         return redirect(url_for('index'))  # или url_for('login'), куда хочешь редиректить
+    
+    # Если пользователь нажал кнопку "Добавить тест", увеличиваем количество полей
+    add_test = request.args.get('add_test', type=int)
+    if add_test:
+        # Создаем форму с большим количеством записей
+        form = CreateTask()
+        # Хак: принудительно увеличиваем min_entries через внутренний механизм или просто создаем форму заново
+        # Но проще: в классе формы сделать динамическое min_entries, но FlaskForm не любит менять его на лету.
+        # Поэтому сделаем так: передадим extra_fields в конструктор, если нужно.
+        pass 
+    
     form = CreateTask()
     if form.validate_on_submit():
         
@@ -620,7 +677,41 @@ def create_task():
             created_date=datetime.now(timezone.utc),
             user_id=current_user.id
         )
-        
+        db.session.add(newtask)
+        db.session.flush() # Получаем ID задачи сразу
+
+        current_order = 1  # Наш собственный счётчик для идеальной нумерации (1, 2, 3...)
+
+        for test_data in form.tests.data:
+            # 1. Достаём данные. .get() вернёт None, если ключа нет.
+            raw_input = test_data.get('input_data')
+            raw_output = test_data.get('expected_output')
+
+            # 2. Приводим к строке и убираем лишние пробелы/переносы по краям
+            input_val = str(raw_input).strip() if raw_input is not None else ''
+            output_val = str(raw_output).strip() if raw_output is not None else ''
+
+            # 🔥 ГЛАВНАЯ ЗАЩИТА: Если input_val пустой ('', ' ', '\n', None) — пропускаем тест!
+            if not input_val:
+                continue
+
+            # 3. Только если тест валидный — создаём объект
+            new_test = TestCase(
+                task_id=newtask.id,
+                order_index=current_order,      # Плотная нумерация: 1, 2, 3...
+                input_data=input_val,
+                expected_output=output_val,
+                is_sample=bool(test_data.get('is_sample', False))
+            )
+            db.session.add(new_test)
+            current_order += 1
+
+        db.session.commit()
+        flash('Задача и тесты созданы!', 'success')
+        return redirect(url_for('tasks_list'))
+
+    return render_template('create_task.html', title='Create task', form=form)
+'''
         
         selected_topic = form.topic.data
         if selected_topic:
@@ -635,11 +726,9 @@ def create_task():
         db.session.commit()
         flash('Your changes have been saved.')
         return redirect(url_for('view_tasks'))
-    '''elif request.method == 'GET':
-        form.username.data = current_user.username
-        form.about_me.data = current_user.about_me'''
+   
     return render_template('create_task.html', title='Create task',
-                           form=form)
+                           form=form)'''
     
 @app.route('/create_topic', methods=['GET', 'POST'])
 @admin_required
@@ -654,7 +743,7 @@ def create_topic():
         db.session.add(newtopic)
         db.session.commit()
         flash('Your changes have been saved.')
-        return redirect(url_for('view_tasks'))
+        return redirect(url_for('tasks_list'))
     '''elif request.method == 'GET':
         form.username.data = current_user.username
         form.about_me.data = current_user.about_me'''
@@ -664,6 +753,31 @@ def create_topic():
 @login_required
 def view_tasks():
     
+    
+    # --- 1. Сначала узнаём, какие задачи УЖЕ РЕШЕНЫ ТЕКУЩИМ ПОЛЬЗОВАТЕЛЕМ ---
+    # Делаем один запрос: все ID задач, где пользователь получил accept=True
+    stmt = (
+    select(Solve.task_id)
+    .where(Solve.user_id == current_user.id)
+    .where(Solve.accept == True)
+    .distinct()
+    )
+
+    result = db.session.execute(stmt)
+    solved_task_ids = {row for row in result.scalars()}  # Или .all(), если так привычнее
+    
+    # --- 2. Тепрь узнаём, какие задачи РЕШАЛ ТЕКУЩИЙ ПОЛЬЗОВАТЕЛЬ ---
+        # Делаем один запрос: все ID задач, где пользователь получил accept=True
+    stmt = (
+        select(Solve.task_id)
+        .where(Solve.user_id == current_user.id)
+        .distinct()
+        )
+    
+    result = db.session.execute(stmt)
+    sended_task_ids = {row for row in result.scalars()}  # Или .all(), если так привычнее
+         
+        
     
     topics = Topic.query.all()
     selected_topic_id = request.args.get('topic_id', type=int)
@@ -685,12 +799,139 @@ def view_tasks():
     prev_url = url_for('view_tasks', page=pagination.prev_num) if pagination.has_prev else None
     
     form = DeleteForm()
-    return render_template('view_tasks.html', form=form,is_admin=is_admin, next_url=next_url,
+    return render_template('view_tasks.html', sended_task_ids=sended_task_ids, solved_task_ids=solved_task_ids, form=form,is_admin=is_admin(), next_url=next_url,
                            prev_url=prev_url,pagination=pagination, topics=topics, selected_topic_id=selected_topic_id, max_per_page=50)
 
-@app.route('/task/<id>', methods=['GET','POST'])
+
+@app.route('/tasks_list', methods=['GET'])
 @login_required
-def task(id):
+def tasks_list():
+    
+    
+    # --- 1. Сначала узнаём, какие задачи УЖЕ РЕШЕНЫ ТЕКУЩИМ ПОЛЬЗОВАТЕЛЕМ ---
+    # Делаем один запрос: все ID задач, где пользователь получил accept=True
+    stmt = (
+    select(Solve.task_id)
+    .where(Solve.user_id == current_user.id)
+    .where(Solve.accept == True)
+    .distinct()
+    )
+
+    result = db.session.execute(stmt)
+    solved_task_ids = {row for row in result.scalars()}  # Или .all(), если так привычнее
+    
+    # --- 2. Тепрь узнаём, какие задачи РЕШАЛ ТЕКУЩИЙ ПОЛЬЗОВАТЕЛЬ ---
+        # Делаем один запрос: все ID задач, где пользователь получил accept=True
+    stmt = (
+        select(Solve.task_id)
+        .where(Solve.user_id == current_user.id)
+        .distinct()
+        )
+    
+    result = db.session.execute(stmt)
+    sended_task_ids = {row for row in result.scalars()}  # Или .all(), если так привычнее
+    
+    topics = Topic.query.all()
+    selected_topic_id = request.args.get('topic_id', type=int)
+    query = Task.query.options(so.joinedload(Task.topic))
+    if selected_topic_id:
+        query = query.filter(Task.topic_id == selected_topic_id)
+       
+    query = query.order_by(Task.created_date.desc())
+    page = request.args.get('page', 1, type=int)         
+    # Фильтрация по теме (если выбрана)
+    
+    pagination = db.paginate(query, page=page, per_page=10, error_out=False)
+
+    next_url = url_for('tasks_list', page=pagination.next_num, topic_id=selected_topic_id) if pagination.has_next else None
+    prev_url = url_for('tasks_list', page=pagination.prev_num, topic_id=selected_topic_id) if pagination.has_prev else None
+
+    topics = Topic.query.all()
+    form = DeleteForm()
+    
+    tasks = pagination.items
+    if not tasks:
+        return render_template(
+                'tasks_list.html',
+                sended_task_ids=sended_task_ids,
+                solved_task_ids=solved_task_ids,
+                form=form,
+                is_admin=is_admin(),
+                next_url=next_url,
+                prev_url=prev_url,
+                pagination=pagination,
+                tasks=[],
+                topics=topics,
+                selected_topic_id=selected_topic_id,
+                max_per_page=50)
+
+    # Получаем ID задач на текущей странице
+    task_ids = [t.id for t in tasks]
+
+    # 2. ОДНИМ запросом получаем статистику для этих 10 задач
+    # Нам нужно: task_id, count(distinct user_id) as attempts, count(distinct user_id where accept=True) as solved
+    stats_stmt = (
+        select(
+            Solve.task_id,
+            func.count(Solve.user_id.distinct()).label('attempts'),
+            func.sum(case((Solve.accept == True, 1), else_=0)).label('solved_count_logic') 
+            # Выше sum(case) считает количество посылок, но нам нужно количество УНИКАЛЬНЫХ пользователей, решивших задачу.
+            # Поэтому лучше сделать два отдельных подзапроса или хитрый count.
+        )
+        .where(Solve.task_id.in_(task_ids))
+        .group_by(Solve.task_id)
+    )
+    
+    # Исправленная логика для solved: нам нужно количество уникальных user_id, у которых accept=True
+    # Делаем это через отдельный запрос для ясности, либо комбинируем. 
+    # Давай сделаем максимально просто и эффективно: два отдельных запроса к БД для этой пачки ID.
+    
+    # Запрос 1: Кто пытался (уникальные user_id)
+    attempts_data = db.session.execute(
+        select(Solve.task_id, func.count(Solve.user_id.distinct()).label('count'))
+        .where(Solve.task_id.in_(task_ids))
+        .group_by(Solve.task_id)
+    ).all()
+    
+    # Запрос 2: Кто решил (уникальные user_id с accept=True)
+    solved_data = db.session.execute(
+        select(Solve.task_id, func.count(Solve.user_id.distinct()).label('count'))
+        .where(Solve.task_id.in_(task_ids))
+        .where(Solve.accept == True)
+        .group_by(Solve.task_id)
+    ).all()
+
+    # Превращаем результаты в словари для быстрого доступа: {task_id: count}
+    attempts_map = {row.task_id: row.count for row in attempts_data}
+    solved_map = {row.task_id: row.count for row in solved_data}
+
+    # Добавляем статистику прямо в объекты задач (это безопасно, так как это временный контекст шаблона)
+    for task in tasks:
+        task.unique_attempts = attempts_map.get(task.id, 0)
+        task.unique_solved = solved_map.get(task.id, 0)
+
+
+
+
+
+    return render_template(
+        'tasks_list.html',
+        sended_task_ids=sended_task_ids,
+        solved_task_ids=solved_task_ids,
+        form=form,
+        is_admin=is_admin(),
+        next_url=next_url,
+        prev_url=prev_url,
+        pagination=pagination,
+        tasks=tasks,
+        topics=topics,
+        selected_topic_id=selected_topic_id,
+        max_per_page=50
+    )
+
+@app.route('/task2/<id>', methods=['GET','POST'])
+@login_required
+def task2(id):
     task2 = db.session.get(Task, id)
     if not task2:
         return abort(404)
@@ -749,38 +990,245 @@ def task(id):
     solution = db.session.scalars(stmt).all()
     
        
-    return render_template('task.html', task=task2,is_admin=is_admin, form=form, solution=solution)
+    return render_template('task2.html', task=task2,is_admin=is_admin, form=form, solution=solution)
 
+@app.route('/task/<int:id>', methods=['GET', 'POST'])
+@login_required
+def task(id):
+    task2 = db.session.get(Task, id)
+    if not task2:
+        return abort(404)
+    
+    # Получаем все тесты
+    all_tests = TestCase.query.filter_by(task_id=task2.id).order_by(TestCase.order_index).all()
+    public_samples = [t for t in all_tests if t.is_sample]
+    hidden_count = len(all_tests) - len(public_samples)
+    is_code_task = (task2.task_type.name == 'code')
+    
+    form = SolutionForm()
+          
+    results = []
+    is_checked = False
+    final_status = "pending"
+    
+    
+    # 👇 ПЕРЕМЕННЫЕ ДЛЯ ПРЕДЗАПОЛНЕНИЯ ФОРМЫ
+    last_code = ""
+    last_lang = ""
+
+    if form.validate_on_submit():
+        user_code = form.answer.data
+        lang = form.language.data
+        last_code = user_code  # Сохраняем, чтобы потом показать
+        last_lang = lang      # Сохраняем язык
+    
+           
+        if is_code_task:
+            tests = task2.tests 
+            if not tests:
+                flash('У этой задачи нет тестов для проверки!', 'warning')
+                # Сохраняем решение даже без тестов
+                newans = Solve(content=user_code, language=lang, created_date=datetime.now(timezone.utc), 
+                                user_id=current_user.id, task_id=id, accept=False)
+                db.session.add(newans)
+                db.session.commit()
+                # Редирект на ту же страницу, чтобы сбросить форму и избежать повторной отправки
+                return redirect(url_for('task', id=id))
+
+            COMPILER_MAP = {'python3': 'python-3.14', 'cpp': 'g++-15', 'java': 'jdk-17'}
+            compiler_name = COMPILER_MAP.get(lang, 'python-3.14')
+            api_url = "https://api.onlinecompiler.io/api/run-code-sync/"
+            headers = {"Authorization": f"{app.config['API_KEY']}", "Content-Type": "application/json"}
+
+            all_passed = True
+            
+            for test in tests:
+                try:
+                    payload = {"compiler": compiler_name, "code": user_code, "input": test.input_data}
+                    resp = requests.post(api_url, json=payload, headers=headers, timeout=5)
+                    
+                    if resp.status_code == 200:
+                        data = resp.json()
+                    else:
+                        data = {"status": "error", "output": "", "error": f"API Error: {resp.status_code}"}
+                    
+                    got_output = (data.get('output') or '').strip()
+                    expected = test.expected_output.strip()
+                    api_status = data.get('status')
+                    
+                    test_result = {
+                        "test_num": test.order_index,
+                        "input": test.input_data,
+                        "expected": expected,
+                        "got": got_output,
+                        "error": data.get('error'),
+                        "status": "",
+                        "is_sample": test.is_sample
+                    }
+
+                    if api_status == 'success' and got_output == expected:
+                        test_result["status"] = "OK"
+                    elif api_status == 'error':
+                        test_result["status"] = "Runtime Error"
+                        all_passed = False
+                    else:
+                        test_result["status"] = "Wrong Answer"
+                        all_passed = False
+                        
+                    results.append(test_result)
+
+                except requests.exceptions.Timeout:
+                    results.append({"test_num": test.order_index, "input": test.input_data, 
+                                     "status": "System Error", "message": "Превышено время ожидания"})
+                    all_passed = False
+                except Exception as e:
+                    results.append({"test_num": test.order_index, "input": test.input_data, 
+                                    "status": "System Error", "error": str(e)})
+                    all_passed = False
+            
+            final_status = "accepted" if all_passed else "rejected"
+            is_checked = True
+
+        else:
+            # Текстовая задача
+            is_accepted = (task2.answer.strip() == user_code.strip())
+            results = [{"status": "OK" if is_accepted else "Wrong", "message": "Текстовая проверка"}]
+            is_checked = True
+            final_status = "accepted" if is_accepted else "rejected"
+        
+        final_language = lang if task2.task_type.name == 'code' else 'text'
+
+        # --- СОХРАНЕНИЕ В БАЗУ ---
+        newans = Solve(
+            content=user_code,
+            language=final_language,
+            created_date=datetime.now(timezone.utc),
+            user_id=current_user.id,
+            task_id=id,
+            accept=(final_status == "accepted")
+        )
+        
+        
+        
+        db.session.add(newans)
+        db.session.commit()
+        
+        flash(f'Решение проверено. Статус: {final_status.upper()}', 'info')
+        
+       
+
+        # ВАЖНО: Сохраняем результаты во временную сессию ПЕРЕД редиректом
+        session['last_results'] = results
+        session['last_final_status'] = final_status
+        session['last_is_checked'] = True
+        
+        # ДЕЛАЕМ РЕДИРЕКТ, чтобы при обновлении страницы форма не отправлялась снова
+        #return redirect(url_for('task', id=id)) 
+
+    
+    # --- ЛОГИКА ОТОБРАЖЕНИЯ (GET) ---
+    # Если мы попали сюда после редиректа, достаем данные из сессии
+    if session.get('last_results'):
+        results = session['last_results']
+        final_status = session.get('last_final_status', "pending")
+        is_checked = session.get('last_is_checked', False)
+        
+        # Очищаем сессию, чтобы данные показались только один раз
+        session.pop('last_results', None)
+        session.pop('last_final_status', None)
+        session.pop('last_is_checked', None)
+    else:
+        # Если просто зашли на страницу (первый раз), результатов нет
+        results = []
+        is_checked = False
+        final_status = "pending"
+
+    # Выборка истории решений
+   
+    if is_admin():
+        stmt = select(Solve).where(Solve.task_id == id).order_by(Solve.created_date.desc()).options(selectinload(Solve.solver))
+    else:
+        stmt = select(Solve).where(Solve.task_id == id).where(Solve.user_id == current_user.id).order_by(Solve.created_date.desc()).options(selectinload(Solve.solver))
+    
+    solution = db.session.scalars(stmt).all()
+
+   
+    
+        
+    return render_template(
+        'task.html', 
+        task=task2, 
+        form=form, 
+        solution=solution, 
+        results=results, 
+        is_checked=is_checked,
+        final_status=final_status,
+        is_admin=is_admin(),  # Передаем результат функции, а не саму функцию!
+        public_samples=public_samples, 
+        hidden_count=hidden_count,
+        all_tests=all_tests,
+        is_code_task=is_code_task,
+        
+    )
+    
+    
 @app.route('/task/<int:id>/edit', methods=['GET', 'POST'])
 @login_required
 def edit_task(id):
     stmt = sa.select(Task).where(Task.id == id)
     result = db.session.execute(stmt)
     edittask = result.scalars().first()
-    #пользователь может редактировать только свои задачи
+    
     if not edittask:
         abort(404)
-        
     if edittask.user_id != current_user.id:
         abort(403)
-    
     
     form = EditTask(obj=edittask)
     
     if request.method == 'POST' and form.validate_on_submit():
-        form.populate_obj(edittask)  # обновляем объект данными из формы
+       
+        # --- Дальше твой обычный код ---
+        # --- ОБНОВЛЕНИЕ ОСНОВНЫХ ПОЛЕЙ ---
+        edittask.title = form.title.data
+        edittask.content = form.content.data
         
-        # --- ОПЦИОНАЛЬНО: Защита от XSS (если редактируют обычные юзеры) ---
-        # import bleach
-        # allowed_tags = ['p', 'br', 'b', 'i', 'u', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'img']
-        # allowed_attrs = {'img': ['src', 'alt']}
-        # edittask.content = bleach.clean(edittask.content, tags=allowed_tags, attributes=allowed_attrs)
-        # ------------------------------------------------------------------
+        # 👇 ВАЖНО: Обновляем тип задачи через ID
+        # В форме поле называется type_id, в модели задачи колонка task_type_id
+        edittask.task_type_id = form.type_id.data
+        
+        # 👇 Если есть поле ответа, раскомментируй:
+        edittask.answer = form.answer.data
+
+        # 🔥 ГЛАВНАЯ ЛОГИКА: Сначала удаляем старые тесты
+        # Это предотвращает ошибку "Instance has been deleted"
+        TestCase.query.filter_by(task_id=edittask.id).delete()
+
+        current_order = 1
+
+        for test_data in form.tests.data:
+            raw_input = test_data.get('input_data')
+            
+            input_val = str(raw_input).strip() if raw_input is not None else ''
+            
+            # Пропускаем пустые
+            if not input_val:
+                continue
+
+            new_test = TestCase(
+                task_id=edittask.id,
+                order_index=current_order,
+                input_data=input_val,
+                expected_output=str(test_data.get('expected_output', '')).strip(),
+                is_sample=bool(test_data.get('is_sample', False))
+            )
+            db.session.add(new_test)
+            current_order += 1
 
         db.session.commit()
         return redirect(url_for('task', id=edittask.id))
     
-    return render_template('edit_task.html', form=form, id=edittask.id)
+    return render_template('edit_task.html', form=form, task=edittask)
 
 @app.route('/task/<int:id>/delete', methods=['POST'])
 @login_required
@@ -794,7 +1242,7 @@ def delete_task(id):
 
     if not task:
         flash('Задача не найдена', 'warning')
-        return redirect(url_for('view_tasks'))
+        return redirect(url_for('tasks_list'))
     if not is_admin():
         abort(403)
     
@@ -808,7 +1256,7 @@ def delete_task(id):
         # Логирование ошибки лучше делать через current_app.logger
         flash('Ошибка при удалении задачи', 'danger')
 
-    return redirect(url_for('view_tasks'))    
+    return redirect(url_for('tasks_list'))    
     
      
     if is_admin() and deltask:  # Проверяем, что запись существует
@@ -850,6 +1298,89 @@ def solutions():
     solutions = db.session.scalars(stmt).all()
     
     return render_template('solutions.html', solutions=solutions,is_admin=is_admin)
+
+@app.route('/task/<int:id>/export', methods=['GET'])
+@admin_required
+def export_solutions(id):
+    # 1. Проверка прав (только админ!)
+    if not is_admin():
+        return abort(403)
+
+    task = db.session.get(Task, id)
+    if not task:
+        return abort(404)
+
+    # 2. Получаем даты из запроса (?start=2024-01-01&end=2024-01-31)
+    start_str = request.args.get('start')
+    end_str = request.args.get('end')
+
+    start_date = None
+    end_date = None
+    
+    accepted_only = request.args.get('accepted') is not None
+    rejected_only = request.args.get('rejected') is not None
+
+    if start_str:
+        start_date = datetime.strptime(start_str, '%Y-%m-%d')
+    if end_str:
+        # Конец дня, чтобы захватить все решения до 23:59:59
+        end_date = datetime.strptime(end_str, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
+
+    # 3. Формируем запрос с фильтром
+    stmt = select(Solve).where(Solve.task_id == id)
+    
+    if start_date:
+        stmt = stmt.where(Solve.created_date >= start_date)
+    if end_date:
+        stmt = stmt.where(Solve.created_date <= end_date)
+    
+    # Логика фильтрации по статусу
+    # Если выбраны ОБА (или ни один не снят) -> показываем всё
+    # Если выбран только Accepted -> фильтруем
+    # Если выбран только Rejected -> фильтруем
+    
+    if accepted_only and not rejected_only:
+        stmt = stmt.where(Solve.accept == True)
+    elif rejected_only and not accepted_only:
+        stmt = stmt.where(Solve.accept == False)
+    # Если оба выбраны (checked) или оба сняты - оставляем без фильтрации по статусу
+        
+    solutions = db.session.scalars(stmt).all()
+
+    if not solutions:
+        flash('Нет решений для экспорта по выбранным датам', 'warning')
+        return redirect(url_for('tasks_list', id=id))
+
+    # 4. Создаем ZIP в памяти (без записи на диск!)
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        for sol in solutions:
+            # Генерируем имя файла: user_123_task_45_2024-01-15_14-30-00.py
+            username = sol.solver.username if sol.solver else f'user_{sol.user_id}'
+            lang_ext = {
+                'python': '.py',
+                'cpp': '.cpp',
+                'java': '.java',
+                'js': '.js'
+            }.get(sol.language or 'text', '.txt')
+            
+            timestamp = sol.created_date.strftime('%Y-%m-%d_%H-%M-%S')
+            filename = f"task_{id}_{username}_{timestamp}{lang_ext}"
+
+            # Добавляем файл в архив
+            zip_file.writestr(filename, sol.content)
+
+    zip_buffer.seek(0)
+
+    # 5. Отдаем файл пользователю
+    filename_archive = f"solutions_task_{id}.zip"
+    return send_file(
+        zip_buffer,
+        mimetype='application/zip',
+        as_attachment=True,
+        download_name=filename_archive
+    )
+
 
 @app.route('/view_solutions', methods=['GET'])
 @admin_required
@@ -904,6 +1435,34 @@ def upload():
             return 'Invalid file type', 400
     
     return render_template('upload.html', form=form)
+
+
+
+@app.route('/add_tests/<int:task_id>', methods=['GET'])
+@admin_required  # Если нет админа, временно закомментируй эту строку
+def add_tests(task_id):
+    from app.models import Task, TestCase
+    
+    task = Task.query.get(task_id)
+    if not task:
+        return f"Задача с ID {task_id} не найдена", 404
+    
+    if task.task_type.name != 'code':
+        return f"Ошибка: Задача должна быть типа 'code', а не '{task.task_type.name}'", 400
+
+    # Удаляем старые тесты для этой задачи, чтобы не дублировать при повторном запуске
+    TestCase.query.filter_by(task_id=task_id).delete()
+    
+    # Добавляем новые
+    tests = [
+        TestCase(task_id=task_id, order_index=1, input_data="2\n2", expected_output="4", is_sample=True),
+        TestCase(task_id=task_id, order_index=2, input_data="10\n20", expected_output="30", is_sample=False)
+    ]
+    
+    db.session.add_all(tests)
+    db.session.commit()
+    
+    return f"✅ Тесты добавлены для задачи '{task.title}'. Теперь проверяй код на /task/{task_id}" 
 
 @app.route('/summer', methods=['GET', 'POST'])
 def summer():
