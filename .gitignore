@@ -11,6 +11,7 @@ parts/
 sdist/
 var/
 wheels/
+venv/
 *.egg-info/
 .installed.cfg
 *.egg
@@ -19,6 +20,7 @@ wheels/
 *.log
 *.tmp
 *.swp
+*.pyc
 *~
 .DS_Store
 Thumbs.db
