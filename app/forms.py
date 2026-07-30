@@ -21,19 +21,19 @@ class UploadImageForm(FlaskForm):
     )
 
 class LoginForm(FlaskForm):
-    username = StringField('Username', validators=[DataRequired()])
-    password = PasswordField('Password', validators=[DataRequired()])
-    remember_me = BooleanField('Remember Me')
-    submit = SubmitField('Sign In')
+    username = StringField('Имя пользователя', validators=[DataRequired()])
+    password = PasswordField('Пароль', validators=[DataRequired()])
+    remember_me = BooleanField('Запомнить меня')
+    submit = SubmitField('Войти')
     
 class RegistrationForm(FlaskForm):
-    role_id = SelectField('Role', coerce=int, validators=[DataRequired()])
-    username = StringField('Username', validators=[DataRequired()])
+    role_id = SelectField('Роль', coerce=int, validators=[DataRequired()])
+    username = StringField('Имя', validators=[DataRequired()])
     email = StringField('Email', validators=[DataRequired(), Email()])
-    password = PasswordField('Password', validators=[DataRequired()])
+    password = PasswordField('Пароль', validators=[DataRequired()])
     password2 = PasswordField(
-        'Repeat Password', validators=[DataRequired(), EqualTo('password')])
-    submit = SubmitField('Register')
+        'Повторите пароль', validators=[DataRequired(), EqualTo('password')])
+    submit = SubmitField('Регистрировать')
 
     def validate_username(self, username):
         user = db.session.scalar(sa.select(User).where(
@@ -48,9 +48,9 @@ class RegistrationForm(FlaskForm):
             raise ValidationError('Please use a different emailaddress.')
 
 class EditProfileForm(FlaskForm):
-    username = StringField('Username', validators=[DataRequired()])
+    username = StringField('Имя', validators=[DataRequired()])
     about_me = TextAreaField('About me', validators=[Length(min=0, max=140)])
-    submit = SubmitField('Submit')
+    submit = SubmitField('Отправить')
 
     def __init__(self, original_username, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -61,12 +61,12 @@ class EditProfileForm(FlaskForm):
             user = db.session.scalar(sa.select(User).where(
                 User.username == username.data))
             if user is not None:
-                raise ValidationError('Please use a different username.')
+                raise ValidationError('Пожалкйста, используйте другое имя.')
 
 class AdminRoleForm(FlaskForm):
-    user_id = IntegerField('User ID', validators=[DataRequired()])
-    new_role_id = SelectField('New Role', coerce=int, validators=[DataRequired()])
-    submit = SubmitField('Change Role')
+    user_id = IntegerField('ID пользователя', validators=[DataRequired()])
+    new_role_id = SelectField('Новая роль', coerce=int, validators=[DataRequired()])
+    submit = SubmitField('Изменить роль')
     
 class TestCaseForm(FlaskForm):
     input_data = TextAreaField('Входные данные', validators=[])
@@ -85,7 +85,7 @@ class CreateTask(FlaskForm):
     
     type_id = SelectField('Тип задачи', coerce=int, validators=[])
     
-    title = StringField('Название задачи', validators=[DataRequired()])
+    title = StringField('Заголовок', validators=[DataRequired()])
     content = TextAreaField('Условие задачи', validators=[])
     answer = TextAreaField(
         'Эталонный код / Ответ', 
@@ -102,7 +102,7 @@ class CreateTask(FlaskForm):
     
     
     tests = FieldList(FormField(TestCaseForm), min_entries=3)
-    submit = SubmitField('Create task')
+    submit = SubmitField('Создать задачу')
     
     def __init__(self, *args, **kwargs):
         super(CreateTask, self).__init__(*args, **kwargs)
@@ -141,8 +141,8 @@ class DeleteForm(FlaskForm):
 class SubmitForm(FlaskForm):
     # Это поле нужно только для CSRF токена, если используешь hidden_tag()
     csrf_token = HiddenField() 
-    answer = StringField('Enter your answer:', validators=[DataRequired()])
-    submit = SubmitField('Submit')
+    answer = StringField('Ваш ответ:', validators=[DataRequired()])
+    submit = SubmitField('Отправить решение')
     
 class SolutionForm(FlaskForm):  # Назовем её SolutionForm, так как это форма отправки решения, а не создания задачи
     # Для ответа используем TextAreaField (он всегда многострочный)

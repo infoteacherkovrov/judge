@@ -20,8 +20,20 @@
                     </ul>
                 </div>
             {% endif %}
-            
-            <!-- Обычные поля -->
+
+            <!--Type-->
+            <div class="mb-3">
+                {{ form.type_id.label(class="form-label") }}
+                {{ form.type_id(class="form-select") }}
+            </div>
+            <!-- Topic -->
+            <div class="mb-3">
+                {{ form.topic.label(class_="form-label") }}
+                {{ form.topic(class_="form-select") }}
+                {% for error in form.topic.errors %}<div class="text-danger">{{ error }}</div>{% endfor %}
+            </div>
+
+            <!-- Title-->
             <div class="mb-3">
                 {{ form.title.label(class="form-label") }}
                 {{ form.title(class="form-control", size=32) }}
@@ -43,11 +55,7 @@
                 {% endif %}
             </div>
 
-            <div class="mb-3">
-                {{ form.type_id.label(class="form-label") }}
-                {{ form.type_id(class="form-select") }}
-            </div>
-
+            
             <!-- ✅ НОВОЕ ПОЛЕ: ЭТАЛОННЫЙ КОД -->
             <div class="mb-4">
                 <label class="form-label">Эталонное решение (код) или правильный ответ</label>
