@@ -27,6 +27,7 @@ import re
 
 import zipfile
 import io
+import logging
 
 
 
@@ -36,6 +37,17 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # опционально: лимит 16 МБ
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
+
+# Создаём логгер специально для этого файла
+logger = logging.getLogger(__name__)
+
+# Если вдруг уровень не установлен (для тестов/локально)
+if not logger.handlers:
+    logger.setLevel(logging.INFO)
+    handler = logging.StreamHandler()  # Пока пусть пишет в консоль (для теста)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
 
 
 def allowed_file(filename):
@@ -123,7 +135,7 @@ def check():
           
 @app.route('/summernote_upload', methods=['POST'])
 def summernote_upload():
-    print("🚀 Загрузка началась (CSRF временно отключен)")
+    logger.info("🚀 Загрузка началась (CSRF временно отключен)")
     
     if 'file' not in request.files:
         return jsonify({'error': 'No file part'}), 400
@@ -142,10 +154,10 @@ def summernote_upload():
         file.save(os.path.join(upload_folder, unique_filename))
         image_url = f'/static/images/{unique_filename}'
         
-        print(f"✅ УСПЕХ: {image_url}")
+        logger.info(f"✅ УСПЕХ: {image_url}")
         return jsonify({'url': image_url})
     except Exception as e:
-        print(f"❌ Ошибка: {e}")
+        logger.info(f"❌ Ошибка: {e}")
         return jsonify({'error': str(e)}), 500
     
     
@@ -571,9 +583,9 @@ def admin_users():
     form.new_role_id.choices = [(r.id, r.rolename) for r in roles]
 
     if form.validate_on_submit():
-        print("--- ОТЛАДКА: Форма прошла валидацию ---")
-        print(f"Получен user_id: {form.user_id.data} (тип: {type(form.user_id.data)})")
-        print(f"Получен new_role_id: {form.new_role_id.data} (тип: {type(form.new_role_id.data)})")
+        logger.info("--- ОТЛАДКА: Форма прошла валидацию ---")
+        logger.info(f"Получен user_id: {form.user_id.data} (тип: {type(form.user_id.data)})")
+        logger.info(f"Получен new_role_id: {form.new_role_id.data} (тип: {type(form.new_role_id.data)})")
 
         user = User.query.get(form.user_id.data)
         
@@ -581,18 +593,18 @@ def admin_users():
             old_role_name = user.role.rolename if user.role else "None"
             user.role_id = form.new_role_id.data
             db.session.commit()
-            print(f"✅ УСПЕХ: Роль пользователя {user.username} изменена с '{old_role_name}' на '{Role.query.get(form.new_role_id.data).rolename}'")
+            logger.info(f"✅ УСПЕХ: Роль пользователя {user.username} изменена с '{old_role_name}' на '{Role.query.get(form.new_role_id.data).rolename}'")
             flash(f'Роль пользователя {user.username} успешно изменена', 'success')
         else:
-            print("❌ ОШИБКА: Пользователь не найден!")
+            logger.info("❌ ОШИБКА: Пользователь не найден!")
             flash('Пользователь не найден', 'danger')
             
         return redirect(url_for('admin_users'))
     else:
         # Если валидация НЕ прошла, выводим ошибки в консоль
         if request.method == 'POST':
-            print("--- ОТЛАДКА: Валидация НЕ пройдена ---")
-            print(f"Ошибки формы: {form.errors}")
+            logger.info("--- ОТЛАДКА: Валидация НЕ пройдена ---")
+            logger.info(f"Ошибки формы: {form.errors}")
             # Это критически важно: если тут есть ошибки, код до commit не доходит!
 
     return render_template('admin_users.html', users=users, roles=roles, form=form)
@@ -602,7 +614,7 @@ def normalize_summernote_images(html_content):
     if not html_content:
         return html_content
 
-    print(f"🛠️ Функция вызвана. Длина контента: {len(html_content)}")
+    logger.info(f"🛠️ Функция вызвана. Длина контента: {len(html_content)}")
 
     # Ищем src, где внутри есть static/images. 
     # Этот паттерн ловит и http://..., и /static/..., и static/...
@@ -613,31 +625,31 @@ def normalize_summernote_images(html_content):
         prefix = match.group(1)      # Всё, что было ДО static/ (например, "http://127.0.0.1:5000/")
         path_part = match.group(2)  # Сам путь: "static/images/23.jpg"
         
-        print(f"🔍 Нашли картинку: префикс='{prefix}', путь='{path_part}'")
+        logger.info(f"🔍 Нашли картинку: префикс='{prefix}', путь='{path_part}'")
 
         # Очищаем путь, убираем "static/" в начале, чтобы получить просто "images/23.jpg"
         filename = path_part.replace('static/', '')
         
         if not filename:
-            print("❌ Ошибка: имя файла пустое!")
+            logger.info("❌ Ошибка: имя файла пустое!")
             return match.group(0)
 
         try:
             # Генерируем ПРАВИЛЬНЫЙ путь через url_for. 
             # Flask сам решит, как правильно отдать файл (даже если ты потом поменяешь домен)
             correct_url = url_for('static', filename=filename)
-            print(f"✅ Превратили '{prefix}{path_part}' в '{correct_url}'")
+            logger.info(f"✅ Превратили '{prefix}{path_part}' в '{correct_url}'")
             return f'src="{correct_url}"'
         except Exception as e:
-            print(f"💥 Ошибка генерации URL: {e}")
+            logger.info(f"💥 Ошибка генерации URL: {e}")
             return match.group(0)
 
     new_html = re.sub(pattern, replacer, html_content)
     
     if new_html == html_content:
-        print("📭 Ничего не найдено. Возможно, картинки нет или формат другой.")
+        logger.info("📭 Ничего не найдено. Возможно, картинки нет или формат другой.")
     else:
-        print("✨ Замена выполнена успешно!")
+        logger.info("✨ Замена выполнена успешно!")
         
     return new_html
 
@@ -661,9 +673,9 @@ def create_task():
     form = CreateTask()
     if form.validate_on_submit():
         
-        print("--- ОТЛАДКА: Форма прошла валидацию ---")
-        print(f"Получен title: {form.title.data} (тип: {type(form.title.data)})")
-        print(f"Получен content: {form.content.data} (тип: {type(form.content.data)})")
+        logger.info("--- ОТЛАДКА: Форма прошла валидацию ---")
+        logger.info(f"Получен title: {form.title.data} (тип: {type(form.title.data)})")
+        logger.info(f"Получен content: {form.content.data} (тип: {type(form.content.data)})")
        
        
         #newtask = Task(title=form.title.data, content=form.content.data, answer=form.answer.data)
@@ -736,8 +748,8 @@ def create_topic():
     form = CreateTopic()
     if form.validate_on_submit():
         
-        print("--- ОТЛАДКА: Форма прошла валидацию ---")
-        print(f"Получен topic: {form.topic.data} (тип: {type(form.topic.data)})")
+        logger.info("--- ОТЛАДКА: Форма прошла валидацию ---")
+        logger.info(f"Получен topic: {form.topic.data} (тип: {type(form.topic.data)})")
                
         newtopic = Topic(topic=form.topic.data)
         db.session.add(newtopic)
@@ -941,7 +953,7 @@ def task2(id):
         
         newans = Solve(content=form.answer.data)
         
-        print("--- ОТЛАДКА: Форма прошла валидацию ---")
+        logger.info("--- ОТЛАДКА: Форма прошла валидацию ---")
         
         if task2.task_type.name == 'code':
             # Если задача на код -> берем то, что выбрал пользователь
@@ -956,8 +968,8 @@ def task2(id):
         
         
         curr = db.session.get(Task, id)
-        print(f"Получен Answer: {curr.answer} (тип: {type(curr.answer)})")
-        print(f"Получен form.answer.data: {form.answer.data} (тип: {type(form.answer.data)})")
+        logger.info(f"Получен Answer: {curr.answer} (тип: {type(curr.answer)})")
+        logger.info(f"Получен form.answer.data: {form.answer.data} (тип: {type(form.answer.data)})")
         newans.accept=(curr.answer==form.answer.data)
         
         
