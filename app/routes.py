@@ -681,6 +681,8 @@ def create_task():
         #newtask = Task(title=form.title.data, content=form.content.data, answer=form.answer.data)
         #newtask.created_date = datetime.now(timezone.utc)
         #newtask.user_id=current_user.id
+        
+        
         newtask = Task(
             title=form.title.data,
             content=form.content.data,
@@ -689,6 +691,16 @@ def create_task():
             created_date=datetime.now(timezone.utc),
             user_id=current_user.id
         )
+        selected_topic = form.topic.data
+        if selected_topic:
+            newtask.topic_id = selected_topic.id
+            # Также можно присвоить саму связь, SQLAlchemy сам поймет:
+            # newtask.topic = selected_topic 
+        else:
+            # Если тема не выбрана, оставляем None (так как у нас nullable=True)
+            newtask.topic_id = None
+        
+        
         db.session.add(newtask)
         db.session.flush() # Получаем ID задачи сразу
 
@@ -1211,6 +1223,15 @@ def edit_task(id):
         
         # 👇 Если есть поле ответа, раскомментируй:
         edittask.answer = form.answer.data
+        
+        selected_topic = form.topic.data
+        if selected_topic:
+            edittask.topic_id = selected_topic.id
+            # Также можно присвоить саму связь, SQLAlchemy сам поймет:
+            # edittask.topic = selected_topic 
+        else:
+            # Если тема не выбрана, оставляем None (так как у нас nullable=True)
+            edittask.topic_id = None
 
         # 🔥 ГЛАВНАЯ ЛОГИКА: Сначала удаляем старые тесты
         # Это предотвращает ошибку "Instance has been deleted"

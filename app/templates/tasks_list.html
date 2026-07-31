@@ -35,7 +35,7 @@
         {% if is_admin%}<th>Ответ</th>{% endif %}
         <th>Рейтинг</th>
         
-        <th>Автор</th>
+        
         
         <th>Сложность</th>
         <th>Решили / Решали / Попыток</th>
@@ -55,12 +55,7 @@
         <td>{{u.answer}}</td>
         {% endif %}
         <td>{{u.rating}}</td>
-        {%if u.creator %} 
-           <td>{{ u.creator.username }}</td>
-        {% else %}
-           <td> unknown</td>
-        {% endif %}
-        
+                
         <!-- Попытки (количество объектов Solve) -->
         {% if u.unique_attempts > 0 %}
             <td class="text-center">{{ (100-((u.unique_solved /u.unique_attempts) * 100)) | int }}%</td>
@@ -91,9 +86,9 @@
             {% endif %}
         </td>
 
-        <td><a href="task/{{u.id}}" class="btn btn-outline-primary btn-sm me-1"> View</a></td>
+        <td><a href="task/{{u.id}}" class="btn btn-outline-primary btn-sm me-1"> Просмотр</a></td>
         {% if is_admin%}
-        <td><a href="task/{{u.id}}/edit" class="btn btn-outline-primary btn-sm me-1">Edit</a></td>
+        <td><a href="task/{{u.id}}/edit" class="btn btn-outline-primary btn-sm me-1">Редактировать</a></td>
 
         
         <td>
