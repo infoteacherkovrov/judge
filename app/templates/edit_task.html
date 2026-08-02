@@ -208,7 +208,7 @@
 
             // Загружаем контент, если он есть (для режима редактирования)
             // Для CREATE будет пусто
-            const initialContent = "{{ form.content.data | default('') | safe }}";
+            const initialContent = `{{ form.content.data | default('') | safe }}`;
             if (initialContent && initialContent.trim() !== "") {
                 $('#summernote').summernote('code', initialContent);
             }
