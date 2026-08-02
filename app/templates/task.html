@@ -245,8 +245,41 @@
                 </div>
                 <!-- =========================== -->
 
-                <!-- Кнопка отправки -->
-                {{ form.submit(class_="btn btn-primary") }}
+                <!-- Кнопка отправки 
+                {{ form.submit(class_="btn btn-primary") }} -->
+
+                <button type="button" onclick="submitSolution()" class="btn btn-primary">
+                    <span id="btn-text">Отправить решение</span>
+                    <span id="btn-spinner" class="spinner-border spinner-border-sm ms-2" role="status" aria-hidden="true" style="display: none;"></span>
+                </button>
+
+                <!-- === МОДАЛЬНОЕ ОКНО (ПОЯВЛЯЕТСЯ ПРИ КЛИКЕ) === -->
+                <div id="loading-modal" style="
+                    display: none; 
+                    position: fixed; 
+                    top: 0; left: 0; width: 100%; height: 100%; 
+                    background: rgba(0, 0, 0, 0.7); 
+                    z-index: 9999; 
+                    justify-content: center; 
+                    align-items: center;
+                    flex-direction: column;
+                ">
+                    <div style="
+                        background: white; 
+                        padding: 30px; 
+                        border-radius: 12px; 
+                        text-align: center; 
+                        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+                        min-width: 350px;
+                    ">
+                        <div class="spinner-border text-primary mb-3" role="status"></div>
+                        <h4 class="mb-2">Решение отправлено!</h4>
+                        <p class="text-muted mb-4">
+                            Система проверяет тесты. Пожалуйста, не обновляйте страницу и не нажимайте кнопку повторно.
+                        </p>
+                        <small class="text-secondary">Это может занять до 2 минут...</small>
+                    </div>
+                </div>
             </form>
         </div> 
     </div>
@@ -416,3 +449,29 @@
 {% endif %}
 
 {% endblock %}
+
+{% block  scripts%}
+<script>
+function submitSolution() {
+    // 1. Блокируем кнопку, чтобы нельзя было нажать дважды
+    const btn = document.querySelector('.btn-primary'); // Или найди по ID, если кнопок много
+    const btnText = document.getElementById('btn-text');
+    const btnSpinner = document.getElementById('btn-spinner');
+    
+    btn.disabled = true;
+    btnText.style.display = 'none';
+    btnSpinner.style.display = 'inline-block';
+
+    // 2. Показываем модальное окно
+    const modal = document.getElementById('loading-modal');
+    modal.style.display = 'flex';
+
+    // 3. Находим форму и отправляем её
+    // Так как у тебя action="" (пустой), браузер сам подставит текущий URL
+    const form = document.querySelector('form'); 
+    if (form) {
+        form.submit();
+    }
+}
+</script>
+{% endblock  %}

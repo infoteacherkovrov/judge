@@ -1066,15 +1066,38 @@ def task(id):
 
             all_passed = True
             
+            
             for test in tests:
                 try:
                     payload = {"compiler": compiler_name, "code": user_code, "input": test.input_data}
-                    resp = requests.post(api_url, json=payload, headers=headers, timeout=5)
+                    resp = requests.post(api_url, json=payload, headers=headers, timeout=30)
+                    
+                    # ЛОГИРОВАНИЕ: критически важно увидеть, что приходит
+                    if resp.status_code != 200:
+                        logger.warning(f"Non-200 status from compiler: {resp.status_code}. Response: {resp.text[:100]}")
+                        test_result["status"] = "System Error"
+                        test_result["error"] = f"API returned {resp.status_code}"
+                        all_passed = False
+                        results.append(test_result)
+                        continue
+                    
                     
                     if resp.status_code == 200:
                         data = resp.json()
                     else:
                         data = {"status": "error", "output": "", "error": f"API Error: {resp.status_code}"}
+                    
+                    # Безопасный парсинг
+                    try:
+                        data = resp.json()
+                    except ValueError:
+                        logger.error(f"Invalid JSON from compiler. Raw: {resp.text[:200]}")
+                        test_result["status"] = "System Error"
+                        test_result["error"] = "Compiler returned invalid JSON"
+                        all_passed = False
+                        results.append(test_result)
+                        continue
+                    
                     
                     got_output = (data.get('output') or '').strip()
                     expected = test.expected_output.strip()
@@ -1100,12 +1123,15 @@ def task(id):
                         all_passed = False
                         
                     results.append(test_result)
+                    logger.info(f"Test {test.order_index} finished: {test_result['status']}")
 
                 except requests.exceptions.Timeout:
+                    logger.error(f"Timeout on test {test.order_index}")
                     results.append({"test_num": test.order_index, "input": test.input_data, 
                                      "status": "System Error", "message": "Превышено время ожидания"})
                     all_passed = False
                 except Exception as e:
+                    logger.exception(f"Unexpected error on test {test.order_index}: {e}")
                     results.append({"test_num": test.order_index, "input": test.input_data, 
                                     "status": "System Error", "error": str(e)})
                     all_passed = False
@@ -1135,9 +1161,14 @@ def task(id):
         
         
         db.session.add(newans)
-        db.session.commit()
-        
-        flash(f'Решение проверено. Статус: {final_status.upper()}', 'info')
+        try:
+            db.session.commit()
+            flash(f'Решение проверено. Статус: {final_status.upper()}', 'info')
+        except Exception as e:
+            db.session.rollback()
+            print(f"ERROR DB: {e}") # Или logger.error(...)
+            flash(f'Ошибка сохранения: {str(e)}', 'danger')
+           
         
        
 
