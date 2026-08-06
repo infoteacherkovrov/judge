@@ -120,7 +120,7 @@ def check():
             # Дальше твоя старая логика сравнения:
             got_output = (data.get('output') or '').strip()
             status = "OK" if data.get('status') == 'success' and got_output == expected_output else "FAIL"
-            
+            logger.info('Получено',got_output, 'Ожидалось',expected_output)
             results.append({
                 "test": num,
                 "input": input_data,
@@ -1100,7 +1100,9 @@ def task(id):
                     
                     
                     got_output = (data.get('output') or '').strip()
+                    got_output=got_output.replace('\r','')
                     expected = test.expected_output.strip()
+                    expected = expected.replace('\r','')
                     api_status = data.get('status')
                     
                     test_result = {
@@ -1123,6 +1125,7 @@ def task(id):
                         all_passed = False
                         
                     results.append(test_result)
+                    logger.info(f"Ожидалось: {repr(got_output)} Получено: {repr(expected)}")
                     logger.info(f"Test {test.order_index} finished: {test_result['status']}")
 
                 except requests.exceptions.Timeout:
@@ -1166,7 +1169,7 @@ def task(id):
             flash(f'Решение проверено. Статус: {final_status.upper()}', 'info')
         except Exception as e:
             db.session.rollback()
-            print(f"ERROR DB: {e}") # Или logger.error(...)
+            logger.error(f"ERROR DB: {e}") # Или print(...)
             flash(f'Ошибка сохранения: {str(e)}', 'danger')
            
         
