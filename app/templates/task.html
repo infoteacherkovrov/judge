@@ -29,11 +29,11 @@
                         </p>
                 
                         <div class="table-responsive">
-                            <table class="table table-hover mb-0">
+                            <table class="table table-hover mb-0 w-50">
                                 <thead class="bg-light">
                                     <tr>
-                                        <th style="width: 50px;">#</th>
-                                        <th>Статус</th>
+                                        <th style="width:10%">#</th>
+                                        <th style="width:10%">Статус</th>
                                         <th>Ввод</th>
                                         <th>Вывод</th>
                                     </tr>
@@ -53,17 +53,11 @@
                                         </td>
 
                                         <!-- Вход: фиксированная высота + скролл -->
-                                        <td style="vertical-align: top;">
-                                            <div style="max-height: 120px; overflow-y: auto; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa; font-family: monospace; white-space: pre-wrap; word-break: break-all;">
-                                                {{ test.input_data or '— пусто —' }}
-                                            </div>
+                                        <td  style="vertical-align: top;"><div style="max-height: 120px; overflow-y: auto; border: 1px solid #dee2e6; padding: 8px; background: #f8f9fa; font-family: monospace; white-space: pre-wrap; word-break: break-all;">{{ test.input_data | trim or '— пусто —' }}</div>
                                         </td>
 
                                         <!-- Выход: фиксированная высота + скролл -->
-                                        <td style="vertical-align: top;">
-                                            <div style="max-height: 120px; overflow-y: auto; border: 1px solid #dee2e6; padding: 8px; background: #e8f5e9; color: #198754; font-family: monospace; white-space: pre-wrap; word-break: break-all;">
-                                                {{ test.expected_output or '— пусто —' }}
-                                            </div>
+                                        <td style="vertical-align: top;"><div style="max-height: 120px; overflow-y: auto; border: 1px solid #dee2e6; padding: 8px; background: #e8f5e9; color: #198754; font-family: monospace; white-space: pre-wrap; word-break: break-all;">{{ test.expected_output | trim or '— пусто —' }}</div>
                                         </td>
                                     </tr>
                                 {% endfor %}
@@ -84,7 +78,7 @@
                             Запустите свой код на этих данных. Если вывод совпадает — можно отправлять.
                     </p>
                     
-                    <table class="table table-bordered table-sm">
+                    <table class="table table-bordered table-sm w-auto">
                         <thead class="table-light">
                             <tr>
                             <th >Ввод</th>

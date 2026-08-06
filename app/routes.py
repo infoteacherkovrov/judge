@@ -28,6 +28,7 @@ import re
 import zipfile
 import io
 import logging
+from bs4 import BeautifulSoup
 
 
 
@@ -934,7 +935,11 @@ def tasks_list():
         task.unique_attempts = attempts_map.get(task.id, 0)
         task.unique_solved = solved_map.get(task.id, 0)
 
-
+    # Очищаем content у каждой задачи
+    for task in tasks:
+        if task.content:  # на случай, если content может быть None
+            soup = BeautifulSoup(task.content, "html.parser")
+            task.content = soup.get_text(separator=" ", strip=True)
 
 
 
@@ -1125,7 +1130,6 @@ def task(id):
                         all_passed = False
                         
                     results.append(test_result)
-                    logger.info(f"Ожидалось: {repr(got_output)} Получено: {repr(expected)}")
                     logger.info(f"Test {test.order_index} finished: {test_result['status']}")
 
                 except requests.exceptions.Timeout:

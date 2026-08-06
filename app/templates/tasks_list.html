@@ -39,7 +39,7 @@
         
         <th>Сложность</th>
         <th>Решили / Решали / Попыток</th>
-        <th>Статус</th>
+        <th width="10%">Статус</th>
         <th>Действия</th>
       </tr>
     </thead>
@@ -50,7 +50,7 @@
         <td>{{u.created_date.strftime('%Y-%m-%d %H:%M')}}</td>
         <td>{{u.topic.topic}}</td>
         <td>{{u.title}}</td>
-        <td>{{u.content | default('', true) | truncate(15, killwords=true)}}</td>
+        <td>{{u.content | default('', true) | truncate(50, killwords=true)}}</td>
         {% if is_admin%}
         <td>{{u.answer}}</td>
         {% endif %}
